@@ -24,7 +24,7 @@ A Chrome extension that captures your intent when you bookmark pages, helping yo
 
 The extension requires icons. For now, you can:
 - Create simple 16x16, 48x48, and 128x128 PNG icons
-- Place them in the `icons/` folder as `icon16.png`, `icon48.png`, `icon128.png`
+- Place them in the `extension/icons/` folder as `icon16.png`, `icon48.png`, `icon128.png`
 - Or use placeholder icons - the extension will work but show a default Chrome icon
 
 ## Usage
@@ -73,7 +73,7 @@ The extension requires icons. For now, you can:
 
 ### Payment Integration (Requires Backend)
 - [ ] Set up backend server (see `backend/README.md`)
-- [ ] Update backend URL in `background.js` and `extension/options.js`
+- [ ] Update backend URL in `extension/background.js` and `extension/options.js`
 - [ ] Click "Upgrade to Pro" → Stripe checkout opens
 - [ ] Complete payment → Plan updates to Pro
 - [ ] Click "Manage Subscription" → Stripe portal opens
@@ -83,14 +83,14 @@ The extension requires icons. For now, you can:
 ```
 decision-drift/
   ├── manifest.json          # Extension manifest (MV3)
-  ├── background.js          # Service worker: bookmark listener, storage, alarms
   ├── extension/
+  │   ├── background.js      # Service worker: bookmark listener, storage, alarms
   │   ├── options.html/js    # Options page (home)
   │   ├── receipt.html/js    # Weekly receipt view
   │   ├── review.html/js     # Bookmark review/declutter
   │   ├── popup.html/js      # Extension popup (minimal)
-  │   └── ui.css             # Shared styles
-  ├── icons/                 # Extension icons (16, 48, 128)
+  │   ├── ui.css             # Shared styles
+  │   └── icons/             # Extension icons (16, 48, 128)
   ├── backend/               # Stripe payment backend (separate server)
   └── README.md
 ```
@@ -132,7 +132,7 @@ The extension supports Stripe payment integration for a Pro plan:
 
 1. **Backend Setup**: Deploy the backend server (see `backend/server.js` and `STRIPE_SETUP.md`)
 2. **Update URLs**: Replace `https://your-backend-url.com` in:
-   - `background.js` (verify-license endpoint)
+   - `extension/background.js` (verify-license endpoint)
    - `extension/options.js` (checkout and portal endpoints)
 3. **Stripe Keys**: Set up Stripe API keys in your backend environment
 4. **Webhook**: Configure Stripe webhook to handle subscription events

@@ -412,7 +412,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       // Create notification
       chrome.notifications.create('dd_weekly_receipt', {
         type: 'basic',
-        iconUrl: chrome.runtime.getURL('icons/icon48.png'),
+        iconUrl: chrome.runtime.getURL('extension/icons/icon48.png'),
         title: 'Decision Drift',
         message: 'Your weekly Decision Receipt is ready!'
       });
@@ -426,7 +426,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 // Notification click handler
 chrome.notifications.onClicked.addListener((notificationId) => {
   if (notificationId === 'dd_weekly_receipt') {
-    chrome.tabs.create({ url: chrome.runtime.getURL('extension/receipt.html') });
+    chrome.tabs.create({ url: chrome.runtime.getURL('receipt.html') });
   }
   chrome.notifications.clear(notificationId);
 });

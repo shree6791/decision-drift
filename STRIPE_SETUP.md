@@ -121,7 +121,7 @@ This guide will help you set up Stripe payments for Decision Drift.
    const BACKEND_URL = 'https://your-backend-url.com';
    ```
 
-3. Open `background.js`
+3. Open `extension/background.js`
 4. Replace `BACKEND_URL`:
    ```javascript
    const BACKEND_URL = 'https://your-backend-url.com';
