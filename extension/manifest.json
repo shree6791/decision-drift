@@ -9,10 +9,7 @@
     "alarms",
     "notifications",
     "scripting",
-    "tabs"
-  ],
-  "host_permissions": [
-    "<all_urls>"
+    "activeTab"
   ],
   "background": {
     "service_worker": "src/background/service_worker.js"
