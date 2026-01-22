@@ -128,29 +128,26 @@ async function loadPlan() {
 
 function renderPlanUI() {
   const badge = document.getElementById('plan-badge');
-  const description = document.getElementById('plan-description');
   const upgradeSection = document.getElementById('upgrade-section');
-  const proSection = document.getElementById('pro-section');
+  const manageBtn = document.getElementById('manage-subscription-btn');
   
-  if (!badge || !description || !upgradeSection || !proSection) return;
+  if (!badge || !upgradeSection || !manageBtn) return;
   
   if (isPro) {
     badge.textContent = 'Pro';
     badge.className = 'plan-badge plan-badge-pro';
-    description.textContent = 'Pro plan with automatic weekly receipts and insights';
     upgradeSection.style.display = 'none';
-    proSection.style.display = 'block';
+    manageBtn.style.display = 'inline-block';
   } else {
     badge.textContent = 'Basic';
     badge.className = 'plan-badge plan-badge-basic';
-    description.textContent = 'Free plan with basic features';
     upgradeSection.style.display = 'block';
-    proSection.style.display = 'none';
+    manageBtn.style.display = 'none';
   }
 }
 
 function handleUpgrade() {
-  window.location.href = 'pricing.html';
+  window.location.href = '../pricing/pricing.html';
 }
 
 async function handleManageSubscription() {

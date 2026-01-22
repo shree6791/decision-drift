@@ -9,31 +9,71 @@
 <body>
   <div class="container">
     <nav class="page-nav">
-      <a href="../receipt/receipt.html">Receipt</a>
-      <a href="../review/review.html">Review</a>
-      <a href="../pricing/pricing.html" class="active">Pricing</a>
+      <div class="nav-tabs">
+        <a href="../receipt/receipt.html">Receipt</a>
+        <a href="../review/review.html">Review</a>
+        <a href="../pricing/pricing.html" class="active">Pricing</a>
+      </div>
+      <a href="../options/options.html" class="nav-back-btn">Back to Options</a>
     </nav>
     
     <header>
-      <h1>A weekly decision receipt. Nothing more. Nothing less.</h1>
+      <h1>Pricing</h1>
     </header>
     
     <div class="pricing-content">
-      <div class="pricing-intro">
-        <p>Most tools help you save more information. Decision Drift helps you remember why you saved it — and whether anything ever closed.</p>
-        <p>Pro gives you a quiet, weekly snapshot of what you intended to act on, what moved, and what stayed intentionally dormant.</p>
-        <p>No tasks. No streaks. No pressure.</p>
+      <div class="pricing-comparison">
+        <table class="comparison-table">
+          <thead>
+            <tr>
+              <th>Feature</th>
+              <th>Free</th>
+              <th>Pro</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Intent tagging</td>
+              <td>✓</td>
+              <td>✓</td>
+            </tr>
+            <tr>
+              <td>Review/declutter</td>
+              <td>✓</td>
+              <td>✓</td>
+            </tr>
+            <tr>
+              <td>Manual receipt</td>
+              <td>✓</td>
+              <td>✓</td>
+            </tr>
+            <tr>
+              <td>Automatic weekly receipts</td>
+              <td>—</td>
+              <td>✓</td>
+            </tr>
+            <tr>
+              <td>Week-over-week trends</td>
+              <td>—</td>
+              <td>✓</td>
+            </tr>
+            <tr>
+              <td>Decision latency tracking</td>
+              <td>—</td>
+              <td>✓</td>
+            </tr>
+            <tr>
+              <td>Intent honesty insights</td>
+              <td>—</td>
+              <td>✓</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
       
-      <div class="pricing-cards">
-        <div class="pricing-card pricing-card-featured">
-          <div class="pricing-price">
-            <span class="price-amount">Pro</span>
-            <span class="price-period">Subscription</span>
-          </div>
-          <button id="subscribe-btn" class="btn btn-primary">Subscribe to Pro</button>
-          <p class="pricing-note">Promotion codes can be applied at checkout</p>
-        </div>
+      <div class="subscribe-section">
+        <button id="subscribe-btn" class="btn btn-primary btn-large">Subscribe to Pro</button>
+        <p class="pricing-note">Promotion codes can be applied at checkout</p>
       </div>
       
       <div id="loading-section" class="loading-section" style="display: none;">
@@ -58,31 +98,6 @@
         </div>
         <button id="dev-enable-btn" class="btn btn-secondary">Enable Pro (Dev)</button>
         <button id="dev-disable-btn" class="btn btn-secondary">Disable Pro</button>
-      </div>
-      
-      <div class="features-section">
-        <div class="features-pro">
-          <h2>Pro Includes</h2>
-          <ul>
-            <li>Automatic weekly receipt notification</li>
-            <li>Week-over-week comparison</li>
-            <li>Decision latency trend</li>
-            <li>Intent honesty breakdown</li>
-          </ul>
-        </div>
-        
-        <div class="features-free">
-          <h2>Always Free</h2>
-          <ul>
-            <li>Intent tagging</li>
-            <li>Review/declutter</li>
-            <li>Manual receipt generation</li>
-          </ul>
-        </div>
-      </div>
-      
-      <div class="actions">
-        <a href="../receipt/receipt.html" class="btn btn-secondary">Back to Receipt</a>
       </div>
     </div>
   </div>

@@ -9,9 +9,12 @@
 <body>
   <div class="container">
     <nav class="page-nav">
-      <a href="../receipt/receipt.html">Receipt</a>
-      <a href="../review/review.html" class="active">Review</a>
-      <a href="../pricing/pricing.html">Pricing</a>
+      <div class="nav-tabs">
+        <a href="../receipt/receipt.html">Receipt</a>
+        <a href="../review/review.html" class="active">Review</a>
+        <a href="../pricing/pricing.html">Pricing</a>
+      </div>
+      <a href="../options/options.html" class="nav-back-btn">Back to Options</a>
     </nav>
     
     <header>
@@ -20,23 +23,20 @@
     </header>
     
     <div class="review-content">
-      <div class="search-bar">
-        <input type="text" id="search-input" placeholder="Search by title or domain...">
-      </div>
-      
-      <div class="filter-bar">
-        <label>
-          <input type="checkbox" id="show-archived" checked>
-          Show archived
-        </label>
+      <div class="review-controls">
+        <div class="search-bar">
+          <input type="text" id="search-input" placeholder="Search by title or domain...">
+        </div>
+        <div class="filter-bar">
+          <label>
+            <input type="checkbox" id="show-archived" checked>
+            Show archived
+          </label>
+        </div>
       </div>
       
       <div id="bookmarks-list" class="bookmarks-list">
         <!-- Populated by JS -->
-      </div>
-      
-      <div class="actions">
-        <a href="../options/options.html" class="btn btn-secondary">Back to Options</a>
       </div>
     </div>
   </div>

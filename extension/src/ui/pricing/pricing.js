@@ -13,12 +13,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Check for payment completion first (similar to options page)
   await checkPaymentCompletion();
   
-  const isPro = await checkProStatus();
-  
-  // If already Pro, don't set up checkout buttons
-  if (isPro) return;
-  
-  // Get or create user ID
+  // Get or create user ID (needed for both subscribe and manage)
   const data = await chrome.storage.local.get(USER_ID_KEY);
   userId = data[USER_ID_KEY];
   
@@ -27,12 +22,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     await chrome.storage.local.set({ [USER_ID_KEY]: userId });
   }
   
+  const isPro = await checkProStatus();
+  
   // Setup event listeners
   const subscribeBtn = document.getElementById('subscribe-btn');
+  const manageBtn = document.getElementById('manage-subscription-btn');
   const retryBtn = document.getElementById('retry-btn');
   const errorSection = document.getElementById('error-section');
   
-  subscribeBtn?.addEventListener('click', () => handleStripeCheckout());
+  if (subscribeBtn) {
+    subscribeBtn.addEventListener('click', () => handleStripeCheckout());
+  }
+  
+  if (manageBtn) {
+    manageBtn.addEventListener('click', () => handleManageSubscription());
+  }
+  
   retryBtn?.addEventListener('click', () => {
     if (errorSection) errorSection.style.display = 'none';
   });
@@ -109,15 +114,29 @@ async function checkProStatus() {
   const pro = data[PRO_KEY];
   
   if (pro?.enabled) {
-    const pricingContent = document.querySelector('.pricing-content');
-    if (pricingContent) {
-      pricingContent.innerHTML = `
-        <div class="pro-active">
-          <h2>✅ Pro is Active</h2>
-          <p>You're enjoying all Pro features!</p>
-          <a href="../receipt/receipt.html" class="btn btn-primary">View Receipt</a>
-        </div>
-      `;
+    // User is Pro - change button to "Manage Subscription"
+    const subscribeBtn = document.getElementById('subscribe-btn');
+    const subscribeSection = document.querySelector('.subscribe-section');
+    
+    if (subscribeBtn && subscribeSection) {
+      // Hide subscribe button
+      subscribeBtn.style.display = 'none';
+      
+      // Create manage subscription button
+      const manageBtn = document.createElement('button');
+      manageBtn.id = 'manage-subscription-btn';
+      manageBtn.className = 'btn btn-secondary btn-large';
+      manageBtn.textContent = 'Manage Subscription';
+      manageBtn.addEventListener('click', () => handleManageSubscription());
+      
+      // Replace subscribe button with manage button
+      subscribeBtn.parentNode.insertBefore(manageBtn, subscribeBtn);
+      
+      // Remove the promotion code note
+      const note = subscribeSection.querySelector('.pricing-note');
+      if (note) {
+        note.style.display = 'none';
+      }
     }
     return true; // Already Pro
   }
@@ -192,6 +211,40 @@ async function handleStripeCheckout() {
       <p><small>Make sure your backend server is running and BACKEND_URL is correct.</small></p>
     `;
     errorSection.style.display = 'block';
+  }
+}
+
+async function handleManageSubscription() {
+  if (!userId) {
+    alert('User ID not found. Please try again.');
+    return;
+  }
+  
+  try {
+    // Get extension ID and send it to backend
+    const extensionId = chrome.runtime.id;
+    
+    const response = await fetch(`${BACKEND_URL}/api/create-portal-session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, extensionId })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to create portal session');
+    }
+    
+    const data = await response.json();
+    
+    // Redirect to Stripe portal
+    if (data.portalUrl) {
+      window.open(data.portalUrl, '_blank');
+    } else {
+      throw new Error('No portal URL received');
+    }
+  } catch (error) {
+    alert('Failed to open subscription management. Please try again later.');
   }
 }
 

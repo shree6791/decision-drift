@@ -7,25 +7,34 @@ const RECEIPT_VIEWS_KEY = 'dd_receiptViews';
 
 let isPro = false;
 
-document.addEventListener('DOMContentLoaded', async () => {
-  // Track receipt view
-  await chrome.runtime.sendMessage({ type: 'DD_TRACK_RECEIPT_VIEW' });
-  
-  // Check Pro status
-  const proResponse = await chrome.runtime.sendMessage({ type: 'DD_GET_PRO' });
-  isPro = proResponse.pro && proResponse.pro.enabled;
-  
-  await generateReceipt();
-  await renderTrends();
-  
-  const generateBtn = document.getElementById('generate-btn');
-  if (generateBtn) {
-    generateBtn.addEventListener('click', async () => {
-      await generateReceipt();
-      await renderTrends();
+// Initialize on DOM ready
+async function initReceiptPage() {
+  try {
+    // Track receipt view (don't block on this)
+    chrome.runtime.sendMessage({ type: 'DD_TRACK_RECEIPT_VIEW' }).catch(() => {});
+    
+    // Check Pro status (don't block on this)
+    chrome.runtime.sendMessage({ type: 'DD_GET_PRO' }, (proResponse) => {
+      if (proResponse && proResponse.pro) {
+        isPro = proResponse.pro.enabled || false;
+      }
+      renderTrends();
     });
+    
+    // Generate initial receipt
+    await generateReceipt();
+  } catch (error) {
+    console.error('Error initializing receipt page:', error);
   }
-});
+}
+
+// Run when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initReceiptPage);
+} else {
+  // DOM is already ready
+  initReceiptPage();
+}
 
 async function generateReceipt() {
   try {
@@ -56,11 +65,17 @@ async function generateReceipt() {
     });
     
     // Update UI
-    document.getElementById('total-saved').textContent = stats.total;
-    document.getElementById('apply-count').textContent = stats.apply;
-    document.getElementById('reference-count').textContent = stats.reference;
-    document.getElementById('interesting-count').textContent = stats.interesting;
-    document.getElementById('skipped-count').textContent = stats.skipped;
+    const totalSavedEl = document.getElementById('total-saved');
+    const applyCountEl = document.getElementById('apply-count');
+    const referenceCountEl = document.getElementById('reference-count');
+    const interestingCountEl = document.getElementById('interesting-count');
+    const skippedCountEl = document.getElementById('skipped-count');
+    
+    if (totalSavedEl) totalSavedEl.textContent = stats.total;
+    if (applyCountEl) applyCountEl.textContent = stats.apply;
+    if (referenceCountEl) referenceCountEl.textContent = stats.reference;
+    if (interestingCountEl) interestingCountEl.textContent = stats.interesting;
+    if (skippedCountEl) skippedCountEl.textContent = stats.skipped;
     
     // Show empty state if no bookmarks
     let emptyState = document.getElementById('empty-state');
@@ -72,31 +87,47 @@ async function generateReceipt() {
         emptyState = document.createElement('div');
         emptyState.id = 'empty-state';
         emptyState.className = 'empty-state';
-        statsGrid.parentNode.insertBefore(emptyState, statsGrid.nextSibling);
+        if (statsGrid && statsGrid.parentNode) {
+          statsGrid.parentNode.insertBefore(emptyState, statsGrid.nextSibling);
+        }
       }
-      emptyState.innerHTML = `
-        <p><strong>No bookmarks yet</strong></p>
-        <p>Create a bookmark on any website to get started. When you bookmark, we'll ask what you're saving it for.</p>
-        <p>Try bookmarking any website you visit (Ctrl+D or Cmd+D)!</p>
-      `;
-      emptyState.style.display = 'block';
+      if (emptyState) {
+        emptyState.innerHTML = `
+          <p><strong>No bookmarks yet</strong></p>
+          <p>Create a bookmark on any website to get started. When you bookmark, we'll ask what you're saving it for.</p>
+          <p>Try bookmarking any website you visit (Ctrl+D or Cmd+D)!</p>
+        `;
+        emptyState.style.display = 'block';
+      }
+      if (statsGrid) statsGrid.style.display = 'none';
     } else if (stats.total === 0 && Object.keys(records).length > 0) {
       // Has bookmarks but none in last 7 days
       if (!emptyState) {
         emptyState = document.createElement('div');
         emptyState.id = 'empty-state';
         emptyState.className = 'empty-state';
-        statsGrid.parentNode.insertBefore(emptyState, statsGrid.nextSibling);
+        if (statsGrid && statsGrid.parentNode) {
+          statsGrid.parentNode.insertBefore(emptyState, statsGrid.nextSibling);
+        }
       }
-      emptyState.innerHTML = `
-        <p><strong>No bookmarks in the last 7 days</strong></p>
-        <p>Create a new bookmark to see your decision receipt!</p>
-      `;
-      emptyState.style.display = 'block';
+      if (emptyState) {
+        emptyState.innerHTML = `
+          <p><strong>No bookmarks in the last 7 days</strong></p>
+          <p>Create a new bookmark to see your decision receipt!</p>
+        `;
+        emptyState.style.display = 'block';
+      }
+      if (statsGrid) statsGrid.style.display = 'none';
     } else {
-      // Has data, hide empty state
+      // Has data, hide empty state and show stats
       if (emptyState) {
         emptyState.style.display = 'none';
+      }
+      // Make sure stats grid is visible
+      if (statsGrid) {
+        statsGrid.style.display = 'grid';
+        statsGrid.style.visibility = 'visible';
+        statsGrid.style.opacity = '1';
       }
     }
     

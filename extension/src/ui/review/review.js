@@ -83,24 +83,25 @@ function renderList() {
     return `
       <div class="bookmark-item ${archived ? 'archived' : ''}">
         <div class="bookmark-main">
-          <div class="bookmark-title">
+          <div class="bookmark-header">
             <a href="${record.url}" target="_blank" data-bookmark-id="${record.bookmarkId}" class="bookmark-link">${escapeHtml(record.title || domain)}</a>
+            <span class="intent intent-${intent}">${intent}</span>
           </div>
           <div class="bookmark-meta">
             <span class="domain">${escapeHtml(domain)}</span>
+            <span class="separator">•</span>
             <span class="date">${date}</span>
-            <span class="intent intent-${intent}">${intent}</span>
-            ${openCountBadge}
-            ${archived ? '<span class="archived-badge">Archived</span>' : ''}
+            ${openCount > 0 ? `<span class="separator">•</span><span class="open-count">Opened ${openCount}x</span>` : ''}
+            ${archived ? '<span class="separator">•</span><span class="archived-badge">Archived</span>' : ''}
           </div>
         </div>
         <div class="bookmark-actions">
           ${!archived 
-            ? `<button class="btn-small" data-action="archive" data-id="${record.bookmarkId}">Archive</button>`
-            : `<button class="btn-small" data-action="unarchive" data-id="${record.bookmarkId}">Unarchive</button>`
+            ? `<button class="btn-action" data-action="archive" data-id="${record.bookmarkId}" title="Archive">Archive</button>`
+            : `<button class="btn-action" data-action="unarchive" data-id="${record.bookmarkId}" title="Unarchive">Unarchive</button>`
           }
-          <button class="btn-small btn-danger" data-action="remove" data-id="${record.bookmarkId}">Remove Record</button>
-          <button class="btn-small btn-danger" data-action="delete" data-id="${record.bookmarkId}">Delete Bookmark</button>
+          <button class="btn-action btn-action-danger" data-action="remove" data-id="${record.bookmarkId}" title="Remove record">Remove</button>
+          <button class="btn-action btn-action-danger" data-action="delete" data-id="${record.bookmarkId}" title="Delete bookmark">Delete</button>
         </div>
       </div>
     `;

@@ -9,9 +9,12 @@
 <body>
   <div class="container">
     <nav class="page-nav">
-      <a href="../receipt/receipt.html" class="active">Receipt</a>
-      <a href="../review/review.html">Review</a>
-      <a href="../pricing/pricing.html">Pricing</a>
+      <div class="nav-tabs">
+        <a href="../receipt/receipt.html" class="active">Receipt</a>
+        <a href="../review/review.html">Review</a>
+        <a href="../pricing/pricing.html">Pricing</a>
+      </div>
+      <a href="../options/options.html" class="nav-back-btn">Back to Options</a>
     </nav>
     
     <header>
@@ -55,18 +58,20 @@
       </div>
       
       <div id="pro-locked" class="pro-locked" style="display: none;">
-        <h2>Want this automatically every week?</h2>
-        <p>Get automatic weekly receipts and week-over-week insights with Pro.</p>
+        <h2>🔒 Unlock Pro Features</h2>
+        <p><strong>Upgrade to Pro to get:</strong></p>
+        <ul style="text-align: left; margin: 16px 0; padding-left: 24px;">
+          <li>🔔 <strong>Automatic weekly receipts</strong> - Get notified every week</li>
+          <li>📈 <strong>Week-over-week trends</strong> - Compare your bookmark patterns</li>
+          <li>⏱️ <strong>Decision latency tracking</strong> - See how quickly you act</li>
+          <li>🎯 <strong>Intent honesty insights</strong> - Track what you say vs. what you do</li>
+        </ul>
         <a href="../pricing/pricing.html" class="btn btn-primary">Upgrade to Pro</a>
       </div>
       
-      <div class="actions">
-        <button id="generate-btn" class="btn btn-primary">Generate Receipt</button>
-        <a href="../options/options.html" class="btn btn-secondary">Back to Options</a>
-      </div>
     </div>
   </div>
   
-  <script src="receipt.js" type="module"></script>
+  <script src="receipt.js"></script>
 </body>
 </html>

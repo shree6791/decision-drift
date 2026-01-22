@@ -9,49 +9,48 @@
 <body>
   <div class="container">
     <header>
-      <h1>Decision Drift</h1>
-      <p class="subtitle">Capture intent when you bookmark</p>
+      <div>
+        <div>
+          <h1>Decision Drift</h1>
+          <p class="subtitle">Capture intent when you bookmark</p>
+        </div>
+        <div id="plan-status" class="plan-status-header">
+          <span id="plan-badge" class="plan-badge">Basic</span>
+          <button id="manage-subscription-btn" class="btn btn-secondary btn-header" style="display: none;">Manage Subscription</button>
+        </div>
+      </div>
     </header>
     
     <div class="options-content">
-      <div class="plan-section">
-        <h2>Plan</h2>
-        <div id="plan-status" class="plan-status">
-          <span id="plan-badge" class="plan-badge">Basic</span>
-          <span id="plan-description">Free plan with basic features</span>
-        </div>
-        <div id="upgrade-section" style="display: none;">
-          <button id="upgrade-btn" class="btn btn-primary">Upgrade to Pro</button>
-        </div>
-        <div id="pro-section" style="display: none;">
-          <p>You're on Pro! 🎉</p>
-          <button id="manage-subscription-btn" class="btn btn-secondary">Manage Subscription</button>
-        </div>
+      <div class="intro-section">
+        <p>Decision Drift helps you remember why you bookmarked something. When you create a bookmark, we'll ask what you're saving it for — Reference, Apply, or Just interesting.</p>
+        <p>Track your bookmark decisions over time and see what you actually act on versus what you intended to act on.</p>
       </div>
       
       <div class="nav-section">
-        <h2>Views</h2>
+        <h2>Quick Links</h2>
         <div class="nav-links">
           <a href="../receipt/receipt.html" class="nav-link">
             <span class="nav-icon">📊</span>
-            <span>Decision Receipt</span>
+            <div class="nav-link-content">
+              <span class="nav-link-title">Decision Receipt</span>
+              <span class="nav-link-desc">View your weekly bookmark summary</span>
+            </div>
           </a>
           <a href="../review/review.html" class="nav-link">
             <span class="nav-icon">📋</span>
-            <span>Review Bookmarks</span>
-          </a>
-          <a href="../pricing/pricing.html" class="nav-link">
-            <span class="nav-icon">💳</span>
-            <span>Pricing</span>
+            <div class="nav-link-content">
+              <span class="nav-link-title">Review Bookmarks</span>
+              <span class="nav-link-desc">Manage and organize your bookmarks</span>
+            </div>
           </a>
         </div>
       </div>
       
-      <div class="info-section">
-        <h2>About</h2>
-        <p>Decision Drift helps you remember why you bookmarked something. When you create a bookmark, we'll ask what you're saving it for.</p>
-        <p><strong>Basic:</strong> Intent capture, weekly receipt, review view</p>
-        <p><strong>Pro:</strong> All basic features + advanced analytics (coming soon)</p>
+      <div id="upgrade-section" class="upgrade-section" style="display: none;">
+        <h2>Upgrade to Pro</h2>
+        <p>Get automatic weekly receipts and advanced insights</p>
+        <button id="upgrade-btn" class="btn btn-primary">Upgrade to Pro</button>
       </div>
     </div>
   </div>
