@@ -4,10 +4,16 @@ A Chrome extension that captures your intent when you bookmark pages, helping yo
 
 ## Features
 
+### Free Features
 - 🎯 **Intent Capture**: When you create a bookmark, a small prompt asks what you're saving it for
-- 📊 **Weekly Receipt**: See a summary of your bookmark decisions from the last 7 days
+- 📊 **Weekly Receipt**: See a summary of your bookmark decisions from the last 7 days (manual generation)
 - 📋 **Review & Declutter**: Browse, archive, and manage your saved bookmarks with their intents
-- 💳 **Pro Plan**: Upgrade for advanced features (coming soon)
+
+### Pro Features
+- 🔔 **Automatic Weekly Receipts**: Get notified every week with your decision summary
+- 📈 **Week-over-Week Trends**: Compare your bookmark patterns across weeks
+- ⏱️ **Decision Latency Tracking**: See how long it takes you to act on "Apply" bookmarks
+- 🎯 **Intent Honesty Insights**: Track the gap between what you say and what you do
 
 ## Installation
 
@@ -43,6 +49,11 @@ Generate icons using `scripts/generate-icons.html`:
    - From Options, click **Review Bookmarks**
    - Search, filter, archive, or remove bookmarks
    - Delete bookmarks directly from Chrome if needed
+
+4. **Upgrade to Pro**:
+   - From Options, click **Pricing** or **Upgrade to Pro**
+   - Subscribe to unlock automatic weekly receipts and advanced insights
+   - Manage your subscription anytime from the Options page
 
 ## Testing Checklist
 
@@ -88,19 +99,28 @@ decision-drift/
   │   ├── icons/                   # Extension icons (16, 48, 128)
   │   └── src/
   │       ├── background/
-  │       │   └── service_worker.js # Bookmark listener, storage, alarms
+  │       │   └── service_worker.js # Bookmark listener, storage, alarms, payments
   │       ├── shared/
-  │       │   └── constants.js     # Shared constants
+  │       │   └── constants.js     # Shared constants (storage keys, backend URL)
   │       └── ui/
   │           ├── styles.css       # Shared styles
-  │           ├── options/         # Options page
+  │           ├── options/         # Options page (home, plan management)
   │           ├── popup/           # Extension popup
-  │           ├── pricing/         # Pricing page
-  │           ├── receipt/         # Weekly receipt view
+  │           ├── pricing/         # Pricing page (Stripe checkout)
+  │           ├── receipt/         # Weekly receipt view (free + Pro trends)
   │           └── review/          # Bookmark review/declutter
   ├── backend/                      # Stripe payment backend
+  │   ├── server.js                # Main server (Express)
+  │   ├── licenseService.js        # License creation & validation
+  │   └── webhookHandlers.js       # Stripe webhook handlers
   ├── scripts/                      # Build/utility scripts
-  └── README.md
+  │   ├── build.sh                 # Production build script
+  │   ├── create-zip.sh            # ZIP creation for Chrome Web Store
+  │   ├── version-bump.js           # Auto-increment version
+  │   └── generate-icons.html      # Icon generator
+  ├── README.md                     # This file
+  ├── PRIVACY.md                    # Privacy policy
+  └── STRIPE_SETUP.md               # Stripe integration guide
 ```
 
 ## Data Storage
@@ -136,7 +156,23 @@ All data is stored locally in `chrome.storage.local`:
 
 ## Payment Integration
 
-The extension supports Stripe payment integration for a Pro plan. See `STRIPE_SETUP.md` for detailed setup instructions.
+Decision Drift uses **Stripe** for secure payment processing. The Pro plan includes:
+
+- **Automatic weekly receipt notifications**
+- **Week-over-week trend analysis**
+- **Decision latency tracking**
+- **Intent honesty insights**
+
+### For Users
+
+- Subscribe directly from the extension's Pricing page
+- Promotion codes can be applied at checkout
+- Manage your subscription anytime from the Options page
+- All payment processing is handled securely by Stripe
+
+### For Developers
+
+To set up payment processing for your own deployment, see `STRIPE_SETUP.md` for detailed instructions.
 
 **Quick Setup:**
 1. Deploy backend server (see `backend/server.js`)
@@ -175,10 +211,15 @@ See `scripts/README.md` for more details.
 
 ## Privacy
 
-- ✅ All data stored locally (no external storage)
-- ✅ No tracking or analytics
-- ✅ Backend only used for payment processing (Stripe)
-- ✅ No personal data sent to backend (only anonymous user ID)
+Decision Drift is built with privacy in mind:
+
+- ✅ **All bookmark data stored locally** - Your bookmarks, URLs, and intents never leave your device
+- ✅ **No tracking or analytics** - We don't track your browsing or collect analytics
+- ✅ **Minimal backend usage** - Backend only used for payment processing (Stripe)
+- ✅ **Anonymous payments** - Only anonymous user IDs sent to backend, no personal information
+- ✅ **Secure payments** - Payment processing handled by Stripe (PCI DSS compliant)
+
+For complete details, see [PRIVACY.md](PRIVACY.md).
 
 ## License
 
