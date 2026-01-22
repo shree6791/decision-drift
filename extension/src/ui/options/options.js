@@ -10,7 +10,7 @@ let isPro = false;
 let userId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Check for payment completion first
+  // Check for payment completion first (from URL params or localStorage)
   await checkPaymentCompletion();
   
   await loadPlan();
@@ -27,18 +27,35 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('manage-subscription-btn')?.addEventListener('click', handleManageSubscription);
 });
 
-// Check for payment completion from localStorage
+// Check for payment completion from URL params or localStorage
 async function checkPaymentCompletion() {
   try {
-    // Check localStorage directly (we're in extension page context)
-    const sessionId = localStorage.getItem('ddPaymentSessionId');
-    const userId = localStorage.getItem('ddPaymentUserId');
+    // First check URL parameters (from success page redirect)
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlSessionId = urlParams.get('session_id');
+    const urlUserId = urlParams.get('userId');
+    
+    // Clean up URL params after reading
+    if (urlSessionId || urlUserId) {
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, newUrl);
+    }
+    
+    // Check localStorage as fallback
+    const lsSessionId = localStorage.getItem('ddPaymentSessionId');
+    const lsUserId = localStorage.getItem('ddPaymentUserId');
     const paymentTime = localStorage.getItem('ddPaymentTime');
     
-    if (sessionId && userId && paymentTime) {
+    // Use URL params if available, otherwise use localStorage
+    const sessionId = urlSessionId || lsSessionId;
+    const userId = urlUserId || lsUserId;
+    
+    if (sessionId && userId) {
       // Check if payment was recent (within last 10 minutes)
       const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
-      if (parseInt(paymentTime) >= tenMinutesAgo) {
+      const isRecent = !paymentTime || parseInt(paymentTime) >= tenMinutesAgo;
+      
+      if (isRecent) {
         // Clear localStorage
         localStorage.removeItem('ddPaymentSessionId');
         localStorage.removeItem('ddPaymentUserId');
@@ -66,7 +83,7 @@ async function checkPaymentCompletion() {
     
     return false;
   } catch (error) {
-    // Silently fail
+    console.error('Error checking payment completion:', error);
     return false;
   }
 }

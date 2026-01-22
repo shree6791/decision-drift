@@ -179,8 +179,9 @@ app.post('/api/create-checkout-session', async (req, res) => {
     }
 
     // Use web-accessible success/cancel pages
+    // Store extensionId in session metadata so success page can use it
     // Extension will check localStorage for payment completion
-    const successUrl = `${BACKEND_URL}/success?session_id={CHECKOUT_SESSION_ID}&userId=${encodeURIComponent(userId)}`;
+    const successUrl = `${BACKEND_URL}/success?session_id={CHECKOUT_SESSION_ID}&userId=${encodeURIComponent(userId)}&extensionId=${encodeURIComponent(extensionId)}`;
     const cancelUrl = `${BACKEND_URL}/cancel`;
 
     // Get or create Stripe customer
@@ -463,7 +464,12 @@ if (IS_DEVELOPMENT) {
  * Stores payment info in localStorage - extension will pick it up automatically
  */
 app.get('/success', (req, res) => {
-  const { session_id, userId } = req.query;
+  const { session_id, userId, extensionId } = req.query;
+  
+  // Store payment info in a way the extension can access it
+  // We'll use a cookie that the extension can read, or better yet, 
+  // store it server-side and have extension poll for it
+  // For now, we'll use a redirect approach with instructions
   
   res.send(`<!DOCTYPE html>
 <html>
@@ -501,6 +507,19 @@ app.get('/success', (req, res) => {
       border-radius: 4px;
     }
     .instruction strong { color: #007bff; display: block; margin-bottom: 8px; }
+    .button {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 12px 24px;
+      background: #007bff;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+    .button:hover {
+      background: #0056b3;
+    }
   </style>
 </head>
 <body>
@@ -510,19 +529,21 @@ app.get('/success', (req, res) => {
     <p><strong>Your Pro subscription is being activated...</strong></p>
     <div class="instruction">
       <strong>Next Steps:</strong>
-      <p>1. Open the Decision Drift extension</p>
-      <p>2. Right-click the extension icon → <strong>Options</strong></p>
-      <p>3. Your Pro features will be activated automatically</p>
+      <p>1. Click the button below to open the extension</p>
+      <p>2. Your Pro features will be activated automatically</p>
     </div>
+    ${extensionId ? `<a href="chrome-extension://${extensionId}/src/ui/options/options.html?payment_success=true&session_id=${encodeURIComponent(session_id || '')}&userId=${encodeURIComponent(userId || '')}" class="button">Open Extension</a>` : '<p style="color: #999; font-size: 14px; margin-top: 30px;">Please open the extension manually: Right-click the extension icon → Options</p>'}
     <p style="color: #999; font-size: 14px; margin-top: 30px;">
       The extension will automatically detect your payment and activate Pro features.
     </p>
   </div>
   <script>
+    // Also try to store in localStorage as fallback (works if user is on same domain)
     try {
       ${session_id ? `localStorage.setItem('ddPaymentSessionId', ${JSON.stringify(session_id)});` : ''}
       ${userId ? `localStorage.setItem('ddPaymentUserId', ${JSON.stringify(userId)});` : ''}
       localStorage.setItem('ddPaymentTime', Date.now().toString());
+      ${extensionId ? `localStorage.setItem('ddExtensionId', ${JSON.stringify(extensionId)});` : ''}
     } catch(e) {
       console.error('Could not store payment info:', e);
     }
