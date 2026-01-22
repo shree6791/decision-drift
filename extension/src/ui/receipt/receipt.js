@@ -16,7 +16,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   isPro = proResponse.pro && proResponse.pro.enabled;
   
   await generateReceipt();
-  await checkUpsell();
   await renderTrends();
   
   document.getElementById('generate-btn').addEventListener('click', async () => {
@@ -111,21 +110,6 @@ async function generateReceipt() {
   }
 }
 
-async function checkUpsell() {
-  if (isPro) {
-    document.getElementById('upsell-prompt').style.display = 'none';
-    return;
-  }
-  
-  const data = await chrome.storage.local.get(RECEIPT_VIEWS_KEY);
-  const views = data[RECEIPT_VIEWS_KEY] || 0;
-  
-  if (views >= 3) {
-    document.getElementById('upsell-prompt').style.display = 'block';
-  } else {
-    document.getElementById('upsell-prompt').style.display = 'none';
-  }
-}
 
 async function renderTrends() {
   const trendsSection = document.getElementById('trends-section');
