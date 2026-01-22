@@ -17,14 +17,14 @@ A Chrome extension that captures your intent when you bookmark pages, helping yo
 2. Open Chrome and navigate to `chrome://extensions/`
 3. Enable **Developer mode** (toggle in top-right)
 4. Click **Load unpacked**
-5. Select the `decision-drift` folder (the folder containing `manifest.json`)
+5. Select the `extension/` folder (the folder containing `manifest.json`)
 6. The extension is now installed!
 
 ### Icons
 
 The extension requires icons. For now, you can:
 - Create simple 16x16, 48x48, and 128x128 PNG icons
-- Place them in the `extension/icons/` folder as `icon16.png`, `icon48.png`, `icon128.png`
+- Place them in the `icons/` folder (inside `extension/`) as `icon16.png`, `icon48.png`, `icon128.png`
 - Or use placeholder icons - the extension will work but show a default Chrome icon
 
 ## Usage
@@ -73,7 +73,7 @@ The extension requires icons. For now, you can:
 
 ### Payment Integration (Requires Backend)
 - [ ] Set up backend server (see `backend/README.md`)
-- [ ] Update backend URL in `extension/background.js` and `extension/options.js`
+- [ ] Update backend URL in `background.js` and `options.js` (inside `extension/` folder)
 - [ ] Click "Upgrade to Pro" → Stripe checkout opens
 - [ ] Complete payment → Plan updates to Pro
 - [ ] Click "Manage Subscription" → Stripe portal opens
@@ -82,16 +82,18 @@ The extension requires icons. For now, you can:
 
 ```
 decision-drift/
-  ├── manifest.json          # Extension manifest (MV3)
-  ├── extension/
+  ├── extension/             # Load THIS folder in Chrome (contains manifest.json)
+  │   ├── manifest.json      # Extension manifest (MV3)
   │   ├── background.js      # Service worker: bookmark listener, storage, alarms
   │   ├── options.html/js    # Options page (home)
   │   ├── receipt.html/js    # Weekly receipt view
   │   ├── review.html/js     # Bookmark review/declutter
+  │   ├── pricing.html/js    # Pricing page
   │   ├── popup.html/js      # Extension popup (minimal)
   │   ├── ui.css             # Shared styles
   │   └── icons/             # Extension icons (16, 48, 128)
   ├── backend/               # Stripe payment backend (separate server)
+  ├── scripts/               # Build/utility scripts
   └── README.md
 ```
 
@@ -132,8 +134,8 @@ The extension supports Stripe payment integration for a Pro plan:
 
 1. **Backend Setup**: Deploy the backend server (see `backend/server.js` and `STRIPE_SETUP.md`)
 2. **Update URLs**: Replace `https://your-backend-url.com` in:
-   - `extension/background.js` (verify-license endpoint)
-   - `extension/options.js` (checkout and portal endpoints)
+   - `background.js` (verify-license endpoint, inside `extension/`)
+   - `options.js` (checkout and portal endpoints, inside `extension/`)
 3. **Stripe Keys**: Set up Stripe API keys in your backend environment
 4. **Webhook**: Configure Stripe webhook to handle subscription events
 

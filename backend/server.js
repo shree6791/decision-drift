@@ -32,8 +32,8 @@ const STRIPE_PRICES = {
 };
 
 // Success/Cancel URLs - Update with your extension's options page
-const SUCCESS_URL = process.env.SUCCESS_URL || 'chrome-extension://YOUR_EXTENSION_ID/extension/pricing.html?success=true';
-const CANCEL_URL = process.env.CANCEL_URL || 'chrome-extension://YOUR_EXTENSION_ID/extension/pricing.html';
+const SUCCESS_URL = process.env.SUCCESS_URL || 'chrome-extension://YOUR_EXTENSION_ID/pricing.html?success=true';
+const CANCEL_URL = process.env.CANCEL_URL || 'chrome-extension://YOUR_EXTENSION_ID/pricing.html';
 
 // Create Stripe checkout session
 app.post('/api/create-checkout-session', async (req, res) => {

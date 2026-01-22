@@ -71,8 +71,8 @@ This guide will help you set up Stripe payments for Decision Drift.
    heroku config:set STRIPE_PRICE_MONTHLY=price_...
    heroku config:set STRIPE_PRICE_YEARLY=price_...
    heroku config:set STRIPE_WEBHOOK_SECRET=whsec_...
-   heroku config:set SUCCESS_URL=chrome-extension://YOUR_EXTENSION_ID/extension/pricing.html?success=true
-   heroku config:set CANCEL_URL=chrome-extension://YOUR_EXTENSION_ID/extension/pricing.html
+   heroku config:set SUCCESS_URL=chrome-extension://YOUR_EXTENSION_ID/pricing.html?success=true
+   heroku config:set CANCEL_URL=chrome-extension://YOUR_EXTENSION_ID/pricing.html
    git push heroku main
    ```
 
@@ -107,21 +107,21 @@ This guide will help you set up Stripe payments for Decision Drift.
 4. Copy the **ID** (long string)
 5. Update `SUCCESS_URL` and `CANCEL_URL` in backend:
    ```
-   chrome-extension://YOUR_EXTENSION_ID/extension/pricing.html?success=true
-   chrome-extension://YOUR_EXTENSION_ID/extension/pricing.html
+   chrome-extension://YOUR_EXTENSION_ID/pricing.html?success=true
+   chrome-extension://YOUR_EXTENSION_ID/pricing.html
    ```
 
 ## Step 6: Update Extension Code
 
 ### Update Backend URL
 
-1. Open `extension/pricing.js`
+1. Open `pricing.js` (inside `extension/` folder)
 2. Replace `BACKEND_URL`:
    ```javascript
    const BACKEND_URL = 'https://your-backend-url.com';
    ```
 
-3. Open `extension/background.js`
+3. Open `background.js` (inside `extension/` folder)
 4. Replace `BACKEND_URL`:
    ```javascript
    const BACKEND_URL = 'https://your-backend-url.com';
