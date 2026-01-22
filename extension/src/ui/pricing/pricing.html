@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pricing - Decision Drift</title>
-  <link rel="stylesheet" href="ui.css">
+  <link rel="stylesheet" href="../styles.css">
 </head>
 <body>
   <div class="container">
     <nav class="page-nav">
-      <a href="receipt.html">Receipt</a>
-      <a href="review.html">Review</a>
-      <a href="pricing.html" class="active">Pricing</a>
+      <a href="../receipt/receipt.html">Receipt</a>
+      <a href="../review/review.html">Review</a>
+      <a href="../pricing/pricing.html" class="active">Pricing</a>
     </nav>
     
     <header>
@@ -26,23 +26,13 @@
       </div>
       
       <div class="pricing-cards">
-        <div class="pricing-card">
-          <div class="pricing-price">
-            <span class="price-amount">$3.49</span>
-            <span class="price-period">/ month</span>
-          </div>
-          <button id="unlock-monthly-btn" class="btn btn-primary">Subscribe Monthly</button>
-          <p class="pricing-note">Billed monthly, cancel anytime</p>
-        </div>
-        
         <div class="pricing-card pricing-card-featured">
-          <div class="pricing-badge">Best Value</div>
           <div class="pricing-price">
-            <span class="price-amount">$29</span>
-            <span class="price-period">/ year</span>
+            <span class="price-amount">Pro</span>
+            <span class="price-period">Subscription</span>
           </div>
-          <button id="unlock-yearly-btn" class="btn btn-primary">Subscribe Yearly</button>
-          <p class="pricing-note">Save $12.88 per year</p>
+          <button id="subscribe-btn" class="btn btn-primary">Subscribe to Pro</button>
+          <p class="pricing-note">Promotion codes can be applied at checkout</p>
         </div>
       </div>
       
@@ -92,11 +82,11 @@
       </div>
       
       <div class="actions">
-        <a href="receipt.html" class="btn btn-secondary">Back to Receipt</a>
+        <a href="../receipt/receipt.html" class="btn btn-secondary">Back to Receipt</a>
       </div>
     </div>
   </div>
   
-  <script src="pricing.js"></script>
+  <script src="pricing.js" type="module"></script>
 </body>
 </html>

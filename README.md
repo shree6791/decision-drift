@@ -22,10 +22,11 @@ A Chrome extension that captures your intent when you bookmark pages, helping yo
 
 ### Icons
 
-The extension requires icons. For now, you can:
-- Create simple 16x16, 48x48, and 128x128 PNG icons
-- Place them in the `icons/` folder (inside `extension/`) as `icon16.png`, `icon48.png`, `icon128.png`
-- Or use placeholder icons - the extension will work but show a default Chrome icon
+Generate icons using `scripts/generate-icons.html`:
+1. Open the file in your browser
+2. Right-click each canvas and save as PNG
+3. Save as `icon16.png`, `icon48.png`, `icon128.png`
+4. Place files in `extension/icons/` folder
 
 ## Usage
 
@@ -72,8 +73,8 @@ The extension requires icons. For now, you can:
 - [ ] Click notification → Receipt page opens
 
 ### Payment Integration (Requires Backend)
-- [ ] Set up backend server (see `backend/README.md`)
-- [ ] Update backend URL in `background.js` and `options.js` (inside `extension/` folder)
+- [ ] Set up backend server (see `STRIPE_SETUP.md`)
+- [ ] Update `BACKEND_URL` in extension files
 - [ ] Click "Upgrade to Pro" → Stripe checkout opens
 - [ ] Complete payment → Plan updates to Pro
 - [ ] Click "Manage Subscription" → Stripe portal opens
@@ -82,18 +83,23 @@ The extension requires icons. For now, you can:
 
 ```
 decision-drift/
-  ├── extension/             # Load THIS folder in Chrome (contains manifest.json)
-  │   ├── manifest.json      # Extension manifest (MV3)
-  │   ├── background.js      # Service worker: bookmark listener, storage, alarms
-  │   ├── options.html/js    # Options page (home)
-  │   ├── receipt.html/js    # Weekly receipt view
-  │   ├── review.html/js     # Bookmark review/declutter
-  │   ├── pricing.html/js    # Pricing page
-  │   ├── popup.html/js      # Extension popup (minimal)
-  │   ├── ui.css             # Shared styles
-  │   └── icons/             # Extension icons (16, 48, 128)
-  ├── backend/               # Stripe payment backend (separate server)
-  ├── scripts/               # Build/utility scripts
+  ├── extension/                    # Load THIS folder in Chrome
+  │   ├── manifest.json            # Extension manifest (MV3)
+  │   ├── icons/                   # Extension icons (16, 48, 128)
+  │   └── src/
+  │       ├── background/
+  │       │   └── service_worker.js # Bookmark listener, storage, alarms
+  │       ├── shared/
+  │       │   └── constants.js     # Shared constants
+  │       └── ui/
+  │           ├── styles.css       # Shared styles
+  │           ├── options/         # Options page
+  │           ├── popup/           # Extension popup
+  │           ├── pricing/         # Pricing page
+  │           ├── receipt/         # Weekly receipt view
+  │           └── review/          # Bookmark review/declutter
+  ├── backend/                      # Stripe payment backend
+  ├── scripts/                      # Build/utility scripts
   └── README.md
 ```
 
@@ -130,14 +136,16 @@ All data is stored locally in `chrome.storage.local`:
 
 ## Payment Integration
 
-The extension supports Stripe payment integration for a Pro plan:
+The extension supports Stripe payment integration for a Pro plan. See `STRIPE_SETUP.md` for detailed setup instructions.
 
-1. **Backend Setup**: Deploy the backend server (see `backend/server.js` and `STRIPE_SETUP.md`)
-2. **Update URLs**: Replace `https://your-backend-url.com` in:
-   - `background.js` (verify-license endpoint, inside `extension/`)
-   - `options.js` (checkout and portal endpoints, inside `extension/`)
-3. **Stripe Keys**: Set up Stripe API keys in your backend environment
-4. **Webhook**: Configure Stripe webhook to handle subscription events
+**Quick Setup:**
+1. Deploy backend server (see `backend/server.js`)
+2. Update `BACKEND_URL` in extension files:
+   - `src/shared/constants.js`
+   - `src/background/service_worker.js`
+   - `src/ui/options/options.js`
+   - `src/ui/pricing/pricing.js`
+3. Configure Stripe keys and webhook (see `STRIPE_SETUP.md`)
 
 ## Development
 
@@ -153,11 +161,17 @@ The extension supports Stripe payment integration for a Pro plan:
 
 ### Building for Production
 
-1. Create icons (16x16, 48x48, 128x128 PNG)
-2. Update version in `manifest.json`
-3. Test all features
-4. Zip the extension folder (excluding `backend/` and `README.md`)
-5. Submit to Chrome Web Store
+Use the build scripts:
+
+```bash
+# Full build (bumps version and creates ZIP)
+./scripts/build.sh
+
+# Or just create ZIP without version bump
+./scripts/create-zip.sh
+```
+
+See `scripts/README.md` for more details.
 
 ## Privacy
 

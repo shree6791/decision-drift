@@ -27,22 +27,14 @@
       ctx.fillStyle = '#007bff';
       ctx.fillRect(0, 0, size, size);
       
-      // Simple bookmark icon (triangle + rectangle)
+      // Draw "DD" text
       ctx.fillStyle = 'white';
-      const margin = size * 0.2;
-      const width = size - (margin * 2);
-      const height = size - (margin * 2);
+      ctx.font = `bold ${Math.floor(size * 0.5)}px Arial, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
       
-      // Bookmark shape
-      ctx.beginPath();
-      ctx.moveTo(margin, margin);
-      ctx.lineTo(margin + width * 0.6, margin);
-      ctx.lineTo(margin + width * 0.6, margin + height * 0.7);
-      ctx.lineTo(margin + width * 0.5, margin + height * 0.8);
-      ctx.lineTo(margin + width * 0.4, margin + height * 0.7);
-      ctx.lineTo(margin + width * 0.4, margin);
-      ctx.closePath();
-      ctx.fill();
+      // Draw "DD" centered
+      ctx.fillText('DD', size / 2, size / 2);
     }
     
     drawIcon(document.getElementById('icon16'), 16);

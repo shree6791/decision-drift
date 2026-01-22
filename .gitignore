@@ -1,6 +1,7 @@
 # Chrome Extension
 *.crx
 *.pem
+*.zip
 
 # Icons (if you add real icons, you might want to commit them)
 # icons/*.png
@@ -19,3 +20,6 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Logs
+*.log

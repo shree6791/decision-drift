@@ -5,7 +5,7 @@ const USER_ID_KEY = 'dd_userId';
 const DEV_MODE = false; // Set to true for dev, or check manifest version
 
 // Backend URL - Update this to your deployed backend URL
-const BACKEND_URL = 'https://your-backend-url.com'; // TODO: Replace with your backend URL
+const BACKEND_URL = 'https://decision-drift.onrender.com'; // TODO: Replace with your backend URL
 
 let userId = null;
 
@@ -25,13 +25,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   
   // Setup event listeners
-  const monthlyBtn = document.getElementById('unlock-monthly-btn');
-  const yearlyBtn = document.getElementById('unlock-yearly-btn');
+  const subscribeBtn = document.getElementById('subscribe-btn');
   const retryBtn = document.getElementById('retry-btn');
   const errorSection = document.getElementById('error-section');
   
-  monthlyBtn?.addEventListener('click', () => handleStripeCheckout('monthly'));
-  yearlyBtn?.addEventListener('click', () => handleStripeCheckout('yearly'));
+  subscribeBtn?.addEventListener('click', () => handleStripeCheckout());
   retryBtn?.addEventListener('click', () => {
     if (errorSection) errorSection.style.display = 'none';
   });
@@ -96,7 +94,7 @@ function isDevMode() {
   return false;
 }
 
-async function handleStripeCheckout(interval) {
+async function handleStripeCheckout() {
   const loadingSection = document.getElementById('loading-section');
   const errorSection = document.getElementById('error-section');
   const errorMessage = document.getElementById('error-message');
@@ -118,10 +116,13 @@ async function handleStripeCheckout(interval) {
   errorSection.style.display = 'none';
   
   try {
+    // Get extension ID and send it to backend
+    const extensionId = chrome.runtime.id;
+    
     const response = await fetch(`${BACKEND_URL}/api/create-checkout-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, interval })
+      body: JSON.stringify({ userId, extensionId })
     });
     
     if (!response.ok) {

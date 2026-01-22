@@ -4,7 +4,7 @@ const PRO_KEY = 'dd_pro';
 const USER_ID_KEY = 'dd_userId';
 
 // Backend URL - Update this to your deployed backend URL
-const BACKEND_URL = 'https://your-backend-url.com'; // TODO: Replace with your backend URL
+const BACKEND_URL = 'https://decision-drift.onrender.com'; // TODO: Replace with your backend URL
 
 let isPro = false;
 let userId = null;
@@ -65,10 +65,13 @@ async function handleManageSubscription() {
   }
   
   try {
+    // Get extension ID and send it to backend
+    const extensionId = chrome.runtime.id;
+    
     const response = await fetch(`${BACKEND_URL}/api/create-portal-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId })
+      body: JSON.stringify({ userId, extensionId })
     });
     
     if (!response.ok) {

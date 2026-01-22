@@ -16,29 +16,24 @@ This guide will help you set up Stripe payments for Decision Drift.
    - Use **Test mode** keys for development
    - Use **Live mode** keys for production
 
-## Step 2: Create Products and Prices in Stripe
-
-### Create Monthly Product
+## Step 2: Create Product and Price in Stripe
 
 1. Go to **Products** → **Add product**
-2. Name: `Decision Drift Pro (Monthly)`
-3. Description: `Pro plan subscription - Monthly`
+2. Name: `Decision Drift Pro`
+3. Description: `Pro plan subscription`
 4. Pricing: **Recurring**
-   - Price: `$3.49`
-   - Billing period: `Monthly`
+   - Set your price and billing period (monthly, yearly, etc.)
+   - You can create multiple prices for the same product if needed
 5. Click **Save product**
 6. **Copy the Price ID** (starts with `price_...`)
 
-### Create Yearly Product
+### Optional: Set Up Promotion Codes
 
-1. Go to **Products** → **Add product**
-2. Name: `Decision Drift Pro (Yearly)`
-3. Description: `Pro plan subscription - Yearly`
-4. Pricing: **Recurring**
-   - Price: `$29.00`
-   - Billing period: `Yearly`
-5. Click **Save product**
-6. **Copy the Price ID** (starts with `price_...`)
+1. Go to **Products** → **Coupons** (or **Promotions**)
+2. Click **Create coupon** or **Create promotion code**
+3. Set discount amount/percentage
+4. Configure expiration, usage limits, etc.
+5. Customers can enter these codes at checkout (promotion code field will appear automatically)
 
 ## Step 3: Set Up Webhook
 
@@ -55,7 +50,53 @@ This guide will help you set up Stripe payments for Decision Drift.
 5. Click **Add endpoint**
 6. **Copy the Signing secret** (starts with `whsec_...`)
 
-## Step 4: Deploy Backend Server
+## Step 4: Install Backend Dependencies
+
+1. Navigate to the `backend/` folder:
+   ```bash
+   cd backend
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+   This will install:
+   - `express` - Web server framework
+   - `stripe` - Stripe SDK
+   - `dotenv` - Environment variable loader
+
+## Step 5: Set Up Environment Variables
+
+### Local Development
+
+1. In the `backend/` folder, create a `.env` file:
+   ```bash
+   cd backend
+   touch .env
+   ```
+
+2. Edit `.env` and fill in your values:
+   ```
+   STRIPE_SECRET_KEY=sk_test_your_actual_key_here
+   STRIPE_WEBHOOK_SECRET=whsec_your_actual_secret_here
+   STRIPE_PRICE_ID=price_your_price_id_here
+   NODE_ENV=development
+   PORT=3000
+   ```
+
+3. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+4. Start the server:
+   ```bash
+   npm start
+   ```
+
+## Step 6: Deploy Backend Server
 
 ### Option A: Using Heroku
 
@@ -68,13 +109,15 @@ This guide will help you set up Stripe payments for Decision Drift.
    ```bash
    heroku create your-app-name
    heroku config:set STRIPE_SECRET_KEY=sk_live_...
-   heroku config:set STRIPE_PRICE_MONTHLY=price_...
-   heroku config:set STRIPE_PRICE_YEARLY=price_...
+   heroku config:set STRIPE_PRICE_ID=price_...
    heroku config:set STRIPE_WEBHOOK_SECRET=whsec_...
-   heroku config:set SUCCESS_URL=chrome-extension://YOUR_EXTENSION_ID/pricing.html?success=true
-   heroku config:set CANCEL_URL=chrome-extension://YOUR_EXTENSION_ID/pricing.html
+   heroku config:set NODE_ENV=production
    git push heroku main
    ```
+   
+   **Note:** 
+   - Set `NODE_ENV=production` for deployed servers
+   - The extension automatically sends its ID to the backend, so URL environment variables are not needed.
 
 ### Option B: Using Railway
 
@@ -83,12 +126,12 @@ This guide will help you set up Stripe payments for Decision Drift.
 3. Select your repo
 4. Add environment variables:
    - `STRIPE_SECRET_KEY`
-   - `STRIPE_PRICE_MONTHLY`
-   - `STRIPE_PRICE_YEARLY`
+   - `STRIPE_PRICE_ID`
    - `STRIPE_WEBHOOK_SECRET`
-   - `SUCCESS_URL`
-   - `CANCEL_URL`
+   - `NODE_ENV=production` (recommended for production)
    - `PORT` (usually auto-set)
+   
+   **Note:** The extension automatically sends its ID to the backend, so URL environment variables are not needed.
 
 ### Option C: Using Render
 
@@ -99,65 +142,26 @@ This guide will help you set up Stripe payments for Decision Drift.
 5. Start command: `node backend/server.js`
 6. Add environment variables (same as Railway)
 
-## Step 5: Get Your Extension ID
-
-1. Load extension in Chrome (unpacked)
-2. Go to `chrome://extensions`
-3. Find "Decision Drift"
-4. Copy the **ID** (long string)
-5. Update `SUCCESS_URL` and `CANCEL_URL` in backend:
-   ```
-   chrome-extension://YOUR_EXTENSION_ID/pricing.html?success=true
-   chrome-extension://YOUR_EXTENSION_ID/pricing.html
-   ```
-
-## Step 6: Update Extension Code
+## Step 7: Update Extension Code
 
 ### Update Backend URL
 
-1. Open `pricing.js` (inside `extension/` folder)
-2. Replace `BACKEND_URL`:
-   ```javascript
-   const BACKEND_URL = 'https://your-backend-url.com';
-   ```
+Update `BACKEND_URL` in these files:
+- `extension/src/shared/constants.js` (shared constant)
+- `extension/src/background/service_worker.js` (if not using shared)
+- `extension/src/ui/options/options.js` (if not using shared)
+- `extension/src/ui/pricing/pricing.js` (if not using shared)
 
-3. Open `background.js` (inside `extension/` folder)
-4. Replace `BACKEND_URL`:
-   ```javascript
-   const BACKEND_URL = 'https://your-backend-url.com';
-   ```
+Replace:
+```javascript
+const BACKEND_URL = 'https://your-backend-url.com';
+```
 
 ### Update Webhook URL in Stripe
 
 1. Go back to Stripe Dashboard → Webhooks
 2. Update endpoint URL to your deployed backend URL
 3. Save
-
-## Step 7: Install Backend Dependencies
-
-Create `backend/package.json`:
-
-```json
-{
-  "name": "decision-drift-backend",
-  "version": "1.0.0",
-  "description": "Backend for Decision Drift Chrome Extension",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "stripe": "^13.0.0"
-  }
-}
-```
-
-Then run:
-```bash
-cd backend
-npm install
-```
 
 ## Step 8: Test the Integration
 
@@ -187,15 +191,16 @@ npm install
 
 ## Environment Variables Summary
 
-```bash
-STRIPE_SECRET_KEY=sk_live_...          # Your Stripe secret key
-STRIPE_PRICE_MONTHLY=price_...          # Monthly price ID
-STRIPE_PRICE_YEARLY=price_...           # Yearly price ID
-STRIPE_WEBHOOK_SECRET=whsec_...         # Webhook signing secret
-SUCCESS_URL=chrome-extension://...      # Extension success URL
-CANCEL_URL=chrome-extension://...       # Extension cancel URL
-PORT=3000                                # Server port (optional)
-```
+**Required:**
+- `STRIPE_SECRET_KEY` - Your Stripe secret key
+- `STRIPE_PRICE_ID` - Your Stripe price ID
+- `STRIPE_WEBHOOK_SECRET` - Webhook signing secret
+
+**Optional:**
+- `NODE_ENV` - `development` (detailed logs) or `production` (secure)
+- `PORT` - Server port (default: 3000)
+
+**Note:** Extension URLs are automatically constructed using the extension ID. No URL environment variables needed.
 
 ## Troubleshooting
 
@@ -222,8 +227,8 @@ PORT=3000                                # Server port (optional)
 ### Extension ID Changes
 
 - If you reload unpacked extension, ID may change
-- Update `SUCCESS_URL` and `CANCEL_URL` in backend
-- Or use a fixed extension ID (publish to Chrome Web Store)
+- No action needed - the extension automatically sends its current ID to the backend
+- URLs are constructed dynamically, so they always use the correct extension ID
 
 ## Production Checklist
 
@@ -231,7 +236,7 @@ PORT=3000                                # Server port (optional)
 - [ ] Products and prices created
 - [ ] Webhook endpoint configured
 - [ ] Backend deployed and accessible
-- [ ] Extension IDs updated in backend
+- [ ] Extension backend URL configured
 - [ ] Test payment completed successfully
 - [ ] Webhook events received
 - [ ] Pro status activates correctly
