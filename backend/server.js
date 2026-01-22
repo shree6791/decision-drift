@@ -1,67 +1,186 @@
 // Decision Drift Backend Server (Node.js/Express)
-// Stripe payment processing and license verification
+// Handles Stripe payments and Pro subscription management
 
-// Load environment variables from .env file
 require('dotenv').config();
-
 const express = require('express');
+const cors = require('cors');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { createLicense, findUserIdByCustomerId, isValidLicense } = require('./licenseService');
+const { initWebhookHandlers } = require('./webhookHandlers');
+
+// Initialize webhook handlers with Stripe instance
+const { handleCheckoutCompleted, handleSubscriptionUpdate } = initWebhookHandlers(stripe);
+
 const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Environment configuration
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const IS_PRODUCTION = NODE_ENV === 'production';
 const IS_DEVELOPMENT = NODE_ENV === 'development';
 
-// Middleware
-app.use(express.json());
-app.use(express.raw({ type: 'application/json' })); // For webhooks
+// Constants
+const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID;
 
-// CORS - Allow extension origin
+if (!STRIPE_PRICE_ID) {
+  console.error('ERROR: STRIPE_PRICE_ID environment variable is required');
+  process.exit(1);
+}
+
+// Middleware
+app.use(cors());
+
+// IMPORTANT: Webhook endpoint must receive raw body for signature verification
+// Skip JSON parsing for webhook route - it needs raw body
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
+  if (req.path === '/api/webhook') {
+    // Skip JSON parsing for webhook - it will use raw body parser in route handler
+    next();
+  } else {
+    // Parse JSON for all other routes
+    express.json()(req, res, next);
   }
-  next();
 });
 
-// In-memory store (use a database in production)
-// userId -> { customerId, subscriptionId, plan: 'pro'|'basic', licenseKey }
+// In-memory user store (replace with database in production)
+// userId -> { customerId, subscriptionId, plan: 'pro'|'basic', licenseKey, status, activatedAt }
 const userStore = new Map();
-
-// Stripe Price ID - Set this in your Stripe Dashboard
-// Create a product and price, then copy the Price ID here
-const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID;
 
 // Helper function to build extension URLs dynamically
 function buildExtensionUrl(extensionId, path) {
   return `chrome-extension://${extensionId}/${path}`;
 }
 
-// Create Stripe checkout session
-app.post('/api/create-checkout-session', async (req, res) => {
+/**
+ * Get license key for user
+ * GET /api/get-license?userId=xxx
+ */
+app.get('/api/get-license', async (req, res) => {
   try {
-    const { userId, extensionId } = req.body;
-    
+    const { userId } = req.query;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing userId' });
+    }
+
+    if (IS_DEVELOPMENT) {
+      console.log(`[GET-LICENSE] Request for userId: ${userId}`);
+    }
+
+    const user = userStore.get(userId);
+
+    if (!user || !isValidLicense(user)) {
+      if (IS_DEVELOPMENT) {
+        console.log(`[GET-LICENSE] ❌ No valid license found for userId: ${userId}`);
+      }
+      return res.status(404).json({ error: 'No license found for this user' });
+    }
+
+    if (IS_DEVELOPMENT) {
+      console.log(`[GET-LICENSE] ✅ Returning license key for userId: ${userId}`);
+    }
+    return res.json({ licenseKey: user.licenseKey });
+  } catch (error) {
+    console.error('[GET-LICENSE] Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * Verify license key
+ * GET /api/verify-license?userId=xxx&licenseKey=xxx
+ */
+app.get('/api/verify-license', async (req, res) => {
+  try {
+    const { userId, licenseKey } = req.query;
+
+    if (!userId || !licenseKey) {
+      return res.status(400).json({ error: 'Missing userId or licenseKey' });
+    }
+
+    const user = userStore.get(userId);
+
+    if (!user || user.licenseKey !== licenseKey || !isValidLicense(user)) {
+      return res.json({ valid: false, isPro: false });
+    }
+
+    return res.json({ valid: true, isPro: true });
+  } catch (error) {
+    console.error('[VERIFY-LICENSE] Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+/**
+ * Verify Pro status (called by extension to check if user has active subscription)
+ * POST /api/verify-pro-status
+ */
+app.post('/api/verify-pro-status', async (req, res) => {
+  try {
+    const { userId } = req.body;
+
     if (!userId) {
       return res.status(400).json({ error: 'userId required' });
     }
+
+    const user = userStore.get(userId);
     
-    if (!STRIPE_PRICE_ID) {
-      return res.status(500).json({ error: 'STRIPE_PRICE_ID not configured' });
+    if (user && isValidLicense(user) && user.subscriptionId) {
+      // Verify subscription is still active in Stripe
+      try {
+        const subscription = await stripe.subscriptions.retrieve(user.subscriptionId);
+        if (subscription.status === 'active' || subscription.status === 'trialing') {
+          return res.json({ 
+            valid: true, 
+            plan: 'pro',
+            licenseKey: user.licenseKey 
+          });
+        } else {
+          // Subscription no longer active, update local store
+          user.plan = 'basic';
+          user.status = subscription.status;
+          userStore.set(userId, user);
+        }
+      } catch (error) {
+        if (IS_DEVELOPMENT) {
+          console.error('[VERIFY-PRO] Subscription verification error:', error);
+        }
+      }
     }
-    
-    // Build extension URLs dynamically using extension ID
+
+    res.json({ valid: false, plan: 'basic' });
+  } catch (error) {
+    console.error('[VERIFY-PRO] Error:', error);
+    res.status(500).json({ 
+      error: IS_PRODUCTION ? 'Failed to verify status' : error.message 
+    });
+  }
+});
+
+/**
+ * Create Stripe Checkout Session
+ * POST /api/create-checkout-session
+ */
+app.post('/api/create-checkout-session', async (req, res) => {
+  try {
+    const { userId, extensionId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'Missing userId' });
+    }
+
     if (!extensionId) {
-      return res.status(400).json({ error: 'extensionId required' });
+      return res.status(400).json({ error: 'Missing extensionId' });
     }
-    
+
+    if (IS_DEVELOPMENT) {
+      console.log(`[CHECKOUT] Creating session for userId: ${userId}`);
+    }
+
+    // Build extension URLs dynamically
     const successUrl = `${buildExtensionUrl(extensionId, 'pricing.html')}?success=true&session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl = buildExtensionUrl(extensionId, 'pricing.html');
-    
+
     // Get or create Stripe customer
     let customerId = userStore.get(userId)?.customerId;
     if (!customerId) {
@@ -71,7 +190,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
       customerId = customer.id;
       userStore.set(userId, { customerId, plan: 'basic' });
     }
-    
+
     // Create checkout session with promotion code support
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -84,247 +203,270 @@ app.post('/api/create-checkout-session', async (req, res) => {
       allow_promotion_codes: true, // Enable promotion codes
       success_url: successUrl,
       cancel_url: cancelUrl,
+      client_reference_id: userId,
       metadata: { userId }
     });
-    
-    res.json({ checkoutUrl: session.url });
+
+    res.json({ checkoutUrl: session.url, sessionId: session.id });
   } catch (error) {
-    if (IS_DEVELOPMENT) {
-      console.error('Checkout error:', error);
+    console.error('[CHECKOUT] Error:', error);
+    
+    if (error.type === 'StripeInvalidRequestError') {
+      return res.status(400).json({ 
+        error: 'Stripe error',
+        details: error.message 
+      });
     }
+    
     res.status(500).json({ 
       error: IS_PRODUCTION ? 'Failed to create checkout session' : error.message 
     });
   }
 });
 
-// Create Stripe customer portal session
+/**
+ * Create Portal Session (for managing subscription)
+ * POST /api/create-portal-session
+ */
 app.post('/api/create-portal-session', async (req, res) => {
   try {
     const { userId, extensionId } = req.body;
-    
+
     if (!userId) {
-      return res.status(400).json({ error: 'userId required' });
+      return res.status(400).json({ error: 'Missing userId' });
     }
-    
+
+    if (!extensionId) {
+      return res.status(400).json({ error: 'Missing extensionId' });
+    }
+
     const user = userStore.get(userId);
     if (!user || !user.customerId) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'No active subscription found' });
     }
-    
-    // Build return URL dynamically using extension ID
-    if (!extensionId) {
-      return res.status(400).json({ error: 'extensionId required' });
-    }
-    
+
     const returnUrl = buildExtensionUrl(extensionId, 'options.html');
-    
+
     const session = await stripe.billingPortal.sessions.create({
       customer: user.customerId,
       return_url: returnUrl
     });
-    
+
     res.json({ portalUrl: session.url });
   } catch (error) {
-    if (IS_DEVELOPMENT) {
-      console.error('Portal error:', error);
-    }
+    console.error('[PORTAL] Error:', error);
     res.status(500).json({ 
       error: IS_PRODUCTION ? 'Failed to create portal session' : error.message 
     });
   }
 });
 
-// Verify Pro status (called by extension to check if user has active subscription)
-app.post('/api/verify-pro-status', async (req, res) => {
+/**
+ * Auto-create license from Stripe session (fallback if webhook didn't fire)
+ * POST /api/auto-create-license
+ * Body: { sessionId: "cs_...", userId: "dd_..." }
+ */
+app.post('/api/auto-create-license', async (req, res) => {
   try {
-    const { userId } = req.body;
-    
-    if (!userId) {
-      return res.status(400).json({ error: 'userId required' });
+    const { sessionId, userId } = req.body;
+
+    if (!sessionId || !userId) {
+      return res.status(400).json({ error: 'Missing sessionId or userId' });
     }
-    
-    const user = userStore.get(userId);
-    if (user && user.plan === 'pro' && user.subscriptionId) {
-      // Verify subscription is still active in Stripe
-      try {
-        const subscription = await stripe.subscriptions.retrieve(user.subscriptionId);
-        if (subscription.status === 'active' || subscription.status === 'trialing') {
-          return res.json({ 
-            valid: true, 
-            plan: 'pro',
-            licenseKey: user.licenseKey 
-          });
-        }
-      } catch (error) {
-        if (IS_DEVELOPMENT) {
-          console.error('Subscription verification error:', error);
-        }
-      }
+
+    // Check if license already exists
+    const existing = userStore.get(userId);
+    if (isValidLicense(existing)) {
+      return res.json({ 
+        success: true, 
+        licenseKey: existing.licenseKey,
+        message: 'License already exists' 
+      });
     }
+
+    // Retrieve and validate session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
     
-    res.json({ valid: false, plan: 'basic' });
-  } catch (error) {
-    if (IS_DEVELOPMENT) {
-      console.error('Verify error:', error);
+    // Validate session
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({ error: 'Payment not completed' });
     }
-    res.status(500).json({ 
-      error: IS_PRODUCTION ? 'Failed to verify status' : error.message 
+    if (session.mode !== 'subscription') {
+      return res.status(400).json({ error: 'Not a subscription session' });
+    }
+
+    // Get subscription and validate
+    const subscription = await stripe.subscriptions.retrieve(session.subscription);
+    if (subscription.status !== 'active' && subscription.status !== 'trialing') {
+      return res.status(400).json({ error: `Subscription status is ${subscription.status}, not active` });
+    }
+
+    // Create license using shared function
+    const licenseKey = createLicense(userId, subscription.customer, subscription.id, userStore);
+    
+    console.log(`[AUTO-CREATE] ✅ License created for userId: ${userId}, sessionId: ${sessionId}`);
+    
+    res.json({ 
+      success: true, 
+      licenseKey,
+      message: 'License created successfully' 
     });
+  } catch (error) {
+    console.error('[AUTO-CREATE] Error:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Verify license key (for dev/testing)
-app.post('/api/verify-license', async (req, res) => {
-  try {
-    const { userId, licenseKey } = req.body;
-    
-    if (!userId || !licenseKey) {
-      return res.status(400).json({ error: 'userId and licenseKey required' });
-    }
-    
-    const user = userStore.get(userId);
-    if (user && user.licenseKey === licenseKey && user.plan === 'pro') {
-      res.json({ valid: true });
-    } else {
-      res.json({ valid: false });
-    }
-  } catch (error) {
-    if (IS_DEVELOPMENT) {
-      console.error('Verify error:', error);
-    }
-    res.status(500).json({ 
-      error: IS_PRODUCTION ? 'Failed to verify license' : error.message 
-    });
-  }
-});
-
-// Stripe webhook handler
-app.post('/api/webhook', async (req, res) => {
+/**
+ * Stripe Webhook Handler
+ * Handles subscription events
+ * NOTE: This route MUST receive raw body for signature verification
+ */
+app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   
   if (!webhookSecret) {
-    console.error('STRIPE_WEBHOOK_SECRET not set');
+    console.error('[WEBHOOK] STRIPE_WEBHOOK_SECRET not set');
     return res.status(500).send('Webhook secret not configured');
   }
   
   let event;
   try {
+    // req.body is now a Buffer (raw body) - required for signature verification
     event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
   } catch (err) {
-    console.error('Webhook signature verification failed:', err.message);
+    console.error('[WEBHOOK] Signature verification failed:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
-  
-  if (IS_DEVELOPMENT) {
-    console.log('Webhook event:', event.type);
-  }
-  
+
   try {
-    switch (event.type) {
-      case 'checkout.session.completed':
-        const session = event.data.object;
-        const userId = session.metadata?.userId;
-        
-        if (userId && session.mode === 'subscription') {
-          // Get subscription
-          const subscriptionId = session.subscription;
-          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-          
-          // Update user store
-          const user = userStore.get(userId) || {};
-          user.customerId = session.customer;
-          user.subscriptionId = subscriptionId;
-          user.plan = 'pro';
-          user.licenseKey = `license_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-          user.activatedAt = Date.now();
-          // Store promotion code if used
-          if (session.total_details?.amount_discount > 0) {
-            user.promotionCode = session.discount?.promotion_code?.code || null;
-          }
-          userStore.set(userId, user);
-          
-          if (IS_DEVELOPMENT) {
-            console.log(`Pro activated for user: ${userId}`);
-          }
-        }
-        break;
-        
-      case 'customer.subscription.deleted':
-        const deletedSubscription = event.data.object;
-        // Find user by customer ID and set plan to basic
-        for (const [uid, u] of userStore.entries()) {
-          if (u.customerId === deletedSubscription.customer) {
-            u.plan = 'basic';
-            u.subscriptionId = null;
-            userStore.set(uid, u);
-            if (IS_DEVELOPMENT) {
-              console.log(`Pro deactivated for user: ${uid}`);
-            }
-            break;
-          }
-        }
-        break;
-        
-      case 'customer.subscription.updated':
-        const updatedSubscription = event.data.object;
-        // Update plan based on subscription status
-        for (const [uid, u] of userStore.entries()) {
-          if (u.customerId === updatedSubscription.customer) {
-            u.plan = (updatedSubscription.status === 'active' || updatedSubscription.status === 'trialing') ? 'pro' : 'basic';
-            userStore.set(uid, u);
-            if (IS_DEVELOPMENT) {
-              console.log(`Subscription updated for user: ${uid}, plan: ${u.plan}`);
-            }
-            break;
-          }
-        }
-        break;
-        
-      case 'invoice.payment_succeeded':
-        // Subscription payment succeeded
-        const invoice = event.data.object;
-        if (invoice.subscription) {
-          // Ensure user is marked as Pro
-          for (const [uid, u] of userStore.entries()) {
-            if (u.customerId === invoice.customer) {
-              u.plan = 'pro';
-              userStore.set(uid, u);
-              break;
-            }
-          }
-        }
-        break;
-        
-      case 'invoice.payment_failed':
-        // Payment failed - could optionally downgrade or send notification
-        if (IS_DEVELOPMENT) {
-          console.log('Payment failed:', event.data.object.id);
-        }
-        break;
+    if (IS_DEVELOPMENT) {
+      console.log(`[WEBHOOK] Received event: ${event.type}, id: ${event.id}`);
     }
     
+    switch (event.type) {
+      case 'checkout.session.completed':
+        await handleCheckoutCompleted(event.data.object, userStore);
+        break;
+
+      case 'customer.subscription.updated':
+      case 'customer.subscription.deleted':
+        handleSubscriptionUpdate(event.data.object, userStore);
+        break;
+
+      case 'invoice.payment_succeeded':
+        // Ensure user is marked as Pro
+        const invoice = event.data.object;
+        if (invoice.subscription) {
+          const userId = findUserIdByCustomerId(invoice.customer, userStore);
+          if (userId) {
+            const user = userStore.get(userId);
+            if (user) {
+              user.plan = 'pro';
+              user.status = 'active';
+              userStore.set(userId, user);
+            }
+          }
+        }
+        break;
+
+      case 'invoice.payment_failed':
+        if (IS_DEVELOPMENT) {
+          console.log(`[WEBHOOK] Payment failed: ${event.data.object.id}`);
+        }
+        break;
+
+      default:
+        if (IS_DEVELOPMENT) {
+          console.log(`[WEBHOOK] Unhandled event type: ${event.type}`);
+        }
+    }
+
     res.json({ received: true });
   } catch (error) {
-    console.error('Webhook processing error:', error);
+    console.error('[WEBHOOK] Handler error:', error);
     res.status(500).json({ 
-      error: IS_PRODUCTION ? 'Webhook processing failed' : error.message 
+      error: IS_PRODUCTION ? 'Webhook handler failed' : error.message 
     });
   }
 });
 
+/**
+ * Debug endpoints (only in development)
+ */
+if (IS_DEVELOPMENT) {
+  /**
+   * Debug endpoint: Manually create license from Stripe customer
+   * GET /api/debug/create-license?userId=xxx&customerId=xxx
+   */
+  app.get('/api/debug/create-license', async (req, res) => {
+    try {
+      const { userId, customerId } = req.query;
+
+      if (!userId || !customerId) {
+        return res.status(400).json({ error: 'Missing userId or customerId' });
+      }
+
+      // Verify customer exists in Stripe
+      await stripe.customers.retrieve(customerId);
+      const subscriptions = await stripe.subscriptions.list({ customer: customerId, limit: 1 });
+
+      if (subscriptions.data.length === 0) {
+        return res.status(404).json({ error: 'No subscription found for this customer' });
+      }
+
+      const subscription = subscriptions.data[0];
+      
+      if (subscription.status !== 'active' && subscription.status !== 'trialing') {
+        return res.status(400).json({ error: `Subscription status is ${subscription.status}, not active` });
+      }
+
+      // Create license using shared function
+      const licenseKey = createLicense(userId, customerId, subscription.id, userStore);
+      
+      console.log(`[DEBUG] ✅ License manually created for userId: ${userId}, customerId: ${customerId}`);
+      
+      res.json({ 
+        success: true, 
+        licenseKey,
+        message: 'License created successfully' 
+      });
+    } catch (error) {
+      console.error('[DEBUG] Error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  /**
+   * Debug endpoint: List all licenses (for debugging)
+   * GET /api/debug/licenses
+   */
+  app.get('/api/debug/licenses', (req, res) => {
+    const licenseList = Array.from(userStore.entries()).map(([userId, user]) => ({
+      userId,
+      licenseKey: user.licenseKey || null,
+      customerId: user.customerId || null,
+      subscriptionId: user.subscriptionId || null,
+      plan: user.plan,
+      status: user.status || 'unknown'
+    }));
+    
+    res.json({ count: userStore.size, licenses: licenseList });
+  });
+}
+
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: Date.now() });
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Decision Drift backend running on port ${PORT}`);
+  console.log(`Decision Drift backend server running on port ${PORT}`);
   console.log(`Environment: ${NODE_ENV}`);
-  console.log(`Stripe price ID: ${STRIPE_PRICE_ID || 'NOT CONFIGURED'}`);
+  console.log(`Stripe price ID: ${STRIPE_PRICE_ID}`);
   if (IS_DEVELOPMENT) {
-    console.log('Development mode: Detailed error messages enabled');
+    console.log('Development mode: Detailed logging enabled');
+    console.log(`Webhook endpoint: http://localhost:${PORT}/api/webhook`);
   }
 });
