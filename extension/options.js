@@ -13,7 +13,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadPlan();
   renderPlanUI();
   
-  document.getElementById('upgrade-btn')?.addEventListener('click', handleUpgrade);
+  const upgradeBtn = document.getElementById('upgrade-btn');
+  if (upgradeBtn) {
+    upgradeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      handleUpgrade();
+    });
+  }
+  
   document.getElementById('manage-subscription-btn')?.addEventListener('click', handleManageSubscription);
 });
 
@@ -30,6 +37,8 @@ function renderPlanUI() {
   const upgradeSection = document.getElementById('upgrade-section');
   const proSection = document.getElementById('pro-section');
   
+  if (!badge || !description || !upgradeSection || !proSection) return;
+  
   if (isPro) {
     badge.textContent = 'Pro';
     badge.className = 'plan-badge plan-badge-pro';
@@ -45,8 +54,7 @@ function renderPlanUI() {
   }
 }
 
-async function handleUpgrade() {
-  // Redirect to pricing page
+function handleUpgrade() {
   window.location.href = 'pricing.html';
 }
 
@@ -78,13 +86,13 @@ async function handleManageSubscription() {
     }
   } catch (error) {
     alert('Failed to open subscription management. Please try again later.');
-    console.error('Portal error:', error);
   }
 }
 
 // Listen for plan changes (e.g., after payment)
-chrome.runtime.onMessage.addListener((message) => {
+chrome.runtime.onMessage.addListener(async (message) => {
   if (message.type === 'DD_PLAN_UPDATED' || message.type === 'DD_PRO_UPDATED') {
-    loadPlan().then(() => renderPlanUI());
+    await loadPlan();
+    renderPlanUI();
   }
 });

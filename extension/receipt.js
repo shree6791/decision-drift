@@ -26,41 +26,89 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 async function generateReceipt() {
-  const data = await chrome.storage.local.get(STORAGE_KEY);
-  const records = data[STORAGE_KEY] || {};
-  
-  // Filter last 7 days
-  const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-  const recentRecords = Object.values(records).filter(
-    record => record.createdAt >= sevenDaysAgo
-  );
-  
-  // Compute stats (single pass for efficiency)
-  const stats = {
-    total: recentRecords.length,
-    apply: 0,
-    reference: 0,
-    interesting: 0,
-    skipped: 0
-  };
-  
-  recentRecords.forEach(record => {
-    const intent = record.intent;
-    if (intent === 'apply') stats.apply++;
-    else if (intent === 'reference') stats.reference++;
-    else if (intent === 'interesting') stats.interesting++;
-    else stats.skipped++; // includes 'skipped' and null/undefined
-  });
-  
-  // Update UI
-  document.getElementById('total-saved').textContent = stats.total;
-  document.getElementById('apply-count').textContent = stats.apply;
-  document.getElementById('reference-count').textContent = stats.reference;
-  document.getElementById('interesting-count').textContent = stats.interesting;
-  document.getElementById('skipped-count').textContent = stats.skipped;
-  
-  // Update last receipt time
-  await chrome.storage.local.set({ [LAST_RECEIPT_KEY]: Date.now() });
+  try {
+    const data = await chrome.storage.local.get(STORAGE_KEY);
+    const records = data[STORAGE_KEY] || {};
+    
+    // Filter last 7 days
+    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    const recentRecords = Object.values(records).filter(
+      record => record && record.createdAt && record.createdAt >= sevenDaysAgo
+    );
+    
+    // Compute stats (single pass for efficiency)
+    const stats = {
+      total: recentRecords.length,
+      apply: 0,
+      reference: 0,
+      interesting: 0,
+      skipped: 0
+    };
+    
+    recentRecords.forEach(record => {
+      const intent = record.intent;
+      if (intent === 'apply') stats.apply++;
+      else if (intent === 'reference') stats.reference++;
+      else if (intent === 'interesting') stats.interesting++;
+      else stats.skipped++; // includes 'skipped' and null/undefined
+    });
+    
+    // Update UI
+    document.getElementById('total-saved').textContent = stats.total;
+    document.getElementById('apply-count').textContent = stats.apply;
+    document.getElementById('reference-count').textContent = stats.reference;
+    document.getElementById('interesting-count').textContent = stats.interesting;
+    document.getElementById('skipped-count').textContent = stats.skipped;
+    
+    // Show empty state if no bookmarks
+    let emptyState = document.getElementById('empty-state');
+    const statsGrid = document.querySelector('.stats-grid');
+    
+    if (stats.total === 0 && Object.keys(records).length === 0) {
+      // No bookmarks at all
+      if (!emptyState) {
+        emptyState = document.createElement('div');
+        emptyState.id = 'empty-state';
+        emptyState.className = 'empty-state';
+        statsGrid.parentNode.insertBefore(emptyState, statsGrid.nextSibling);
+      }
+      emptyState.innerHTML = `
+        <p><strong>No bookmarks yet</strong></p>
+        <p>Create a bookmark on any website to get started. When you bookmark, we'll ask what you're saving it for.</p>
+        <p>Try bookmarking any website you visit (Ctrl+D or Cmd+D)!</p>
+      `;
+      emptyState.style.display = 'block';
+    } else if (stats.total === 0 && Object.keys(records).length > 0) {
+      // Has bookmarks but none in last 7 days
+      if (!emptyState) {
+        emptyState = document.createElement('div');
+        emptyState.id = 'empty-state';
+        emptyState.className = 'empty-state';
+        statsGrid.parentNode.insertBefore(emptyState, statsGrid.nextSibling);
+      }
+      emptyState.innerHTML = `
+        <p><strong>No bookmarks in the last 7 days</strong></p>
+        <p>Create a new bookmark to see your decision receipt!</p>
+      `;
+      emptyState.style.display = 'block';
+    } else {
+      // Has data, hide empty state
+      if (emptyState) {
+        emptyState.style.display = 'none';
+      }
+    }
+    
+    // Update last receipt time
+    await chrome.storage.local.set({ [LAST_RECEIPT_KEY]: Date.now() });
+  } catch (error) {
+    // Error generating receipt - show empty state
+    // Show error message
+    const statsGrid = document.querySelector('.stats-grid');
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'empty-state';
+    errorDiv.innerHTML = `<p>Error loading receipt. Please try again.</p>`;
+    statsGrid.parentNode.insertBefore(errorDiv, statsGrid.nextSibling);
+  }
 }
 
 async function checkUpsell() {

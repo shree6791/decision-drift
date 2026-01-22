@@ -263,6 +263,18 @@ h2 {
   text-align: center;
   padding: 40px;
   color: #666;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin: 24px 0;
+}
+
+.empty-state p {
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.empty-state p:last-child {
+  margin-bottom: 0;
 }
 
 /* Options Page */

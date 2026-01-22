@@ -10,39 +10,47 @@ const BACKEND_URL = 'https://your-backend-url.com'; // TODO: Replace with your b
 let userId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await checkProStatus();
+  const isPro = await checkProStatus();
   
-  // Get user ID
+  // If already Pro, don't set up checkout buttons
+  if (isPro) return;
+  
+  // Get or create user ID
   const data = await chrome.storage.local.get(USER_ID_KEY);
   userId = data[USER_ID_KEY];
   
   if (!userId) {
-    // Should not happen, but create one if missing
     userId = `dd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     await chrome.storage.local.set({ [USER_ID_KEY]: userId });
   }
   
-  // Stripe checkout buttons
-  document.getElementById('unlock-monthly-btn').addEventListener('click', () => handleStripeCheckout('monthly'));
-  document.getElementById('unlock-yearly-btn').addEventListener('click', () => handleStripeCheckout('yearly'));
+  // Setup event listeners
+  const monthlyBtn = document.getElementById('unlock-monthly-btn');
+  const yearlyBtn = document.getElementById('unlock-yearly-btn');
+  const retryBtn = document.getElementById('retry-btn');
+  const errorSection = document.getElementById('error-section');
   
-  // Retry button
-  document.getElementById('retry-btn').addEventListener('click', () => {
-    document.getElementById('error-section').style.display = 'none';
+  monthlyBtn?.addEventListener('click', () => handleStripeCheckout('monthly'));
+  yearlyBtn?.addEventListener('click', () => handleStripeCheckout('yearly'));
+  retryBtn?.addEventListener('click', () => {
+    if (errorSection) errorSection.style.display = 'none';
   });
   
   // Dev mode (if enabled)
-  const devSection = document.getElementById('dev-section');
   if (isDevMode()) {
-    devSection.style.display = 'block';
-    document.getElementById('activate-btn').addEventListener('click', handleActivate);
-    document.getElementById('license-key').addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') {
-        handleActivate();
-      }
+    const devSection = document.getElementById('dev-section');
+    const activateBtn = document.getElementById('activate-btn');
+    const licenseKey = document.getElementById('license-key');
+    const devEnableBtn = document.getElementById('dev-enable-btn');
+    const devDisableBtn = document.getElementById('dev-disable-btn');
+    
+    if (devSection) devSection.style.display = 'block';
+    activateBtn?.addEventListener('click', handleActivate);
+    licenseKey?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleActivate();
     });
-    document.getElementById('dev-enable-btn').addEventListener('click', handleDevEnable);
-    document.getElementById('dev-disable-btn').addEventListener('click', handleDevDisable);
+    devEnableBtn?.addEventListener('click', handleDevEnable);
+    devDisableBtn?.addEventListener('click', handleDevDisable);
   }
   
   // Check for success callback (from Stripe redirect)
@@ -56,16 +64,21 @@ async function checkProStatus() {
   const data = await chrome.storage.local.get(PRO_KEY);
   const pro = data[PRO_KEY];
   
-  if (pro && pro.enabled) {
-    // User is already Pro, show success message
-    document.querySelector('.pricing-content').innerHTML = `
-      <div class="pro-active">
-        <h2>✅ Pro is Active</h2>
-        <p>You're enjoying all Pro features!</p>
-        <a href="receipt.html" class="btn btn-primary">View Receipt</a>
-      </div>
-    `;
+  if (pro?.enabled) {
+    const pricingContent = document.querySelector('.pricing-content');
+    if (pricingContent) {
+      pricingContent.innerHTML = `
+        <div class="pro-active">
+          <h2>✅ Pro is Active</h2>
+          <p>You're enjoying all Pro features!</p>
+          <a href="receipt.html" class="btn btn-primary">View Receipt</a>
+        </div>
+      `;
+    }
+    return true; // Already Pro
   }
+  
+  return false; // Not Pro, continue setup
 }
 
 function isDevMode() {
@@ -88,6 +101,19 @@ async function handleStripeCheckout(interval) {
   const errorSection = document.getElementById('error-section');
   const errorMessage = document.getElementById('error-message');
   
+  // Check if backend URL is configured
+  if (BACKEND_URL === 'https://your-backend-url.com' || !BACKEND_URL) {
+    loadingSection.style.display = 'none';
+    errorMessage.innerHTML = `
+      <p><strong>Backend not configured</strong></p>
+      <p>Please set up your backend server and update BACKEND_URL in pricing.js</p>
+      <p>See STRIPE_SETUP.md for instructions.</p>
+      <p><small>For testing, enable Dev Mode to use license keys instead.</small></p>
+    `;
+    errorSection.style.display = 'block';
+    return;
+  }
+  
   loadingSection.style.display = 'block';
   errorSection.style.display = 'none';
   
@@ -99,7 +125,7 @@ async function handleStripeCheckout(interval) {
     });
     
     if (!response.ok) {
-      const error = await response.json();
+      const error = await response.json().catch(() => ({ error: 'Network error' }));
       throw new Error(error.error || 'Failed to create checkout session');
     }
     
@@ -112,9 +138,12 @@ async function handleStripeCheckout(interval) {
       throw new Error('No checkout URL received');
     }
   } catch (error) {
-    console.error('Checkout error:', error);
     loadingSection.style.display = 'none';
-    errorMessage.textContent = error.message || 'Failed to start checkout. Please try again.';
+    errorMessage.innerHTML = `
+      <p><strong>Checkout Error</strong></p>
+      <p>${error.message || 'Failed to start checkout. Please try again.'}</p>
+      <p><small>Make sure your backend server is running and BACKEND_URL is correct.</small></p>
+    `;
     errorSection.style.display = 'block';
   }
 }
@@ -147,7 +176,7 @@ async function handleStripeSuccess() {
       `;
     }
   } catch (error) {
-    console.error('Verification error:', error);
+    // Silently handle verification errors - payment may still be processing
   }
 }
 
@@ -212,7 +241,6 @@ async function handleActivate() {
       errorEl.style.display = 'block';
     }
   } catch (error) {
-    console.error('License verification error:', error);
     errorEl.textContent = 'Failed to verify license. Please try again.';
     errorEl.style.display = 'block';
   }
