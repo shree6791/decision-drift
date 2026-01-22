@@ -1,9 +1,17 @@
 // Decision Drift Backend Server (Node.js/Express)
 // Stripe payment processing and license verification
 
+// Load environment variables from .env file
+require('dotenv').config();
+
 const express = require('express');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const app = express();
+
+// Environment configuration
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const IS_PRODUCTION = NODE_ENV === 'production';
+const IS_DEVELOPMENT = NODE_ENV === 'development';
 
 // Middleware
 app.use(express.json());
@@ -24,29 +32,35 @@ app.use((req, res, next) => {
 // userId -> { customerId, subscriptionId, plan: 'pro'|'basic', licenseKey }
 const userStore = new Map();
 
-// Stripe Price IDs - Set these in your Stripe Dashboard
-// Create products and prices, then copy the Price IDs here
-const STRIPE_PRICES = {
-  monthly: process.env.STRIPE_PRICE_MONTHLY || 'price_monthly_id', // $3.49/month
-  yearly: process.env.STRIPE_PRICE_YEARLY || 'price_yearly_id'     // $29/year
-};
+// Stripe Price ID - Set this in your Stripe Dashboard
+// Create a product and price, then copy the Price ID here
+const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID;
 
-// Success/Cancel URLs - Update with your extension's options page
-const SUCCESS_URL = process.env.SUCCESS_URL || 'chrome-extension://YOUR_EXTENSION_ID/pricing.html?success=true';
-const CANCEL_URL = process.env.CANCEL_URL || 'chrome-extension://YOUR_EXTENSION_ID/pricing.html';
+// Helper function to build extension URLs dynamically
+function buildExtensionUrl(extensionId, path) {
+  return `chrome-extension://${extensionId}/${path}`;
+}
 
 // Create Stripe checkout session
 app.post('/api/create-checkout-session', async (req, res) => {
   try {
-    const { userId, interval } = req.body;
+    const { userId, extensionId } = req.body;
     
     if (!userId) {
       return res.status(400).json({ error: 'userId required' });
     }
     
-    if (!interval || !['monthly', 'yearly'].includes(interval)) {
-      return res.status(400).json({ error: 'interval must be "monthly" or "yearly"' });
+    if (!STRIPE_PRICE_ID) {
+      return res.status(500).json({ error: 'STRIPE_PRICE_ID not configured' });
     }
+    
+    // Build extension URLs dynamically using extension ID
+    if (!extensionId) {
+      return res.status(400).json({ error: 'extensionId required' });
+    }
+    
+    const successUrl = `${buildExtensionUrl(extensionId, 'pricing.html')}?success=true&session_id={CHECKOUT_SESSION_ID}`;
+    const cancelUrl = buildExtensionUrl(extensionId, 'pricing.html');
     
     // Get or create Stripe customer
     let customerId = userStore.get(userId)?.customerId;
@@ -58,37 +72,36 @@ app.post('/api/create-checkout-session', async (req, res) => {
       userStore.set(userId, { customerId, plan: 'basic' });
     }
     
-    // Get price ID
-    const priceId = STRIPE_PRICES[interval];
-    if (!priceId || priceId.includes('_id')) {
-      return res.status(500).json({ error: 'Stripe price not configured' });
-    }
-    
-    // Create checkout session
+    // Create checkout session with promotion code support
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
       line_items: [{
-        price: priceId,
+        price: STRIPE_PRICE_ID,
         quantity: 1
       }],
       mode: 'subscription',
-      success_url: `${SUCCESS_URL}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: CANCEL_URL,
-      metadata: { userId, interval }
+      allow_promotion_codes: true, // Enable promotion codes
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      metadata: { userId }
     });
     
     res.json({ checkoutUrl: session.url });
   } catch (error) {
-    console.error('Checkout error:', error);
-    res.status(500).json({ error: error.message });
+    if (IS_DEVELOPMENT) {
+      console.error('Checkout error:', error);
+    }
+    res.status(500).json({ 
+      error: IS_PRODUCTION ? 'Failed to create checkout session' : error.message 
+    });
   }
 });
 
 // Create Stripe customer portal session
 app.post('/api/create-portal-session', async (req, res) => {
   try {
-    const { userId } = req.body;
+    const { userId, extensionId } = req.body;
     
     if (!userId) {
       return res.status(400).json({ error: 'userId required' });
@@ -99,15 +112,26 @@ app.post('/api/create-portal-session', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
+    // Build return URL dynamically using extension ID
+    if (!extensionId) {
+      return res.status(400).json({ error: 'extensionId required' });
+    }
+    
+    const returnUrl = buildExtensionUrl(extensionId, 'options.html');
+    
     const session = await stripe.billingPortal.sessions.create({
       customer: user.customerId,
-      return_url: CANCEL_URL
+      return_url: returnUrl
     });
     
     res.json({ portalUrl: session.url });
   } catch (error) {
-    console.error('Portal error:', error);
-    res.status(500).json({ error: error.message });
+    if (IS_DEVELOPMENT) {
+      console.error('Portal error:', error);
+    }
+    res.status(500).json({ 
+      error: IS_PRODUCTION ? 'Failed to create portal session' : error.message 
+    });
   }
 });
 
@@ -133,14 +157,20 @@ app.post('/api/verify-pro-status', async (req, res) => {
           });
         }
       } catch (error) {
-        console.error('Subscription verification error:', error);
+        if (IS_DEVELOPMENT) {
+          console.error('Subscription verification error:', error);
+        }
       }
     }
     
     res.json({ valid: false, plan: 'basic' });
   } catch (error) {
-    console.error('Verify error:', error);
-    res.status(500).json({ error: error.message });
+    if (IS_DEVELOPMENT) {
+      console.error('Verify error:', error);
+    }
+    res.status(500).json({ 
+      error: IS_PRODUCTION ? 'Failed to verify status' : error.message 
+    });
   }
 });
 
@@ -160,8 +190,12 @@ app.post('/api/verify-license', async (req, res) => {
       res.json({ valid: false });
     }
   } catch (error) {
-    console.error('Verify error:', error);
-    res.status(500).json({ error: error.message });
+    if (IS_DEVELOPMENT) {
+      console.error('Verify error:', error);
+    }
+    res.status(500).json({ 
+      error: IS_PRODUCTION ? 'Failed to verify license' : error.message 
+    });
   }
 });
 
@@ -183,7 +217,9 @@ app.post('/api/webhook', async (req, res) => {
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
   
-  console.log('Webhook event:', event.type);
+  if (IS_DEVELOPMENT) {
+    console.log('Webhook event:', event.type);
+  }
   
   try {
     switch (event.type) {
@@ -203,9 +239,15 @@ app.post('/api/webhook', async (req, res) => {
           user.plan = 'pro';
           user.licenseKey = `license_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
           user.activatedAt = Date.now();
+          // Store promotion code if used
+          if (session.total_details?.amount_discount > 0) {
+            user.promotionCode = session.discount?.promotion_code?.code || null;
+          }
           userStore.set(userId, user);
           
-          console.log(`Pro activated for user: ${userId}`);
+          if (IS_DEVELOPMENT) {
+            console.log(`Pro activated for user: ${userId}`);
+          }
         }
         break;
         
@@ -217,7 +259,9 @@ app.post('/api/webhook', async (req, res) => {
             u.plan = 'basic';
             u.subscriptionId = null;
             userStore.set(uid, u);
-            console.log(`Pro deactivated for user: ${uid}`);
+            if (IS_DEVELOPMENT) {
+              console.log(`Pro deactivated for user: ${uid}`);
+            }
             break;
           }
         }
@@ -230,7 +274,9 @@ app.post('/api/webhook', async (req, res) => {
           if (u.customerId === updatedSubscription.customer) {
             u.plan = (updatedSubscription.status === 'active' || updatedSubscription.status === 'trialing') ? 'pro' : 'basic';
             userStore.set(uid, u);
-            console.log(`Subscription updated for user: ${uid}, plan: ${u.plan}`);
+            if (IS_DEVELOPMENT) {
+              console.log(`Subscription updated for user: ${uid}, plan: ${u.plan}`);
+            }
             break;
           }
         }
@@ -253,14 +299,18 @@ app.post('/api/webhook', async (req, res) => {
         
       case 'invoice.payment_failed':
         // Payment failed - could optionally downgrade or send notification
-        console.log('Payment failed:', event.data.object.id);
+        if (IS_DEVELOPMENT) {
+          console.log('Payment failed:', event.data.object.id);
+        }
         break;
     }
     
     res.json({ received: true });
   } catch (error) {
     console.error('Webhook processing error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ 
+      error: IS_PRODUCTION ? 'Webhook processing failed' : error.message 
+    });
   }
 });
 
@@ -272,5 +322,9 @@ app.get('/health', (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Decision Drift backend running on port ${PORT}`);
-  console.log(`Stripe prices: monthly=${STRIPE_PRICES.monthly}, yearly=${STRIPE_PRICES.yearly}`);
+  console.log(`Environment: ${NODE_ENV}`);
+  console.log(`Stripe price ID: ${STRIPE_PRICE_ID || 'NOT CONFIGURED'}`);
+  if (IS_DEVELOPMENT) {
+    console.log('Development mode: Detailed error messages enabled');
+  }
 });
