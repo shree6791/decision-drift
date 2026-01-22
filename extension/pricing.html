@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pricing - Decision Drift</title>
+  <link rel="stylesheet" href="ui.css">
+</head>
+<body>
+  <div class="container">
+    <nav class="page-nav">
+      <a href="receipt.html">Receipt</a>
+      <a href="review.html">Review</a>
+      <a href="pricing.html" class="active">Pricing</a>
+    </nav>
+    
+    <header>
+      <h1>A weekly decision receipt. Nothing more. Nothing less.</h1>
+    </header>
+    
+    <div class="pricing-content">
+      <div class="pricing-intro">
+        <p>Most tools help you save more information. Decision Drift helps you remember why you saved it — and whether anything ever closed.</p>
+        <p>Pro gives you a quiet, weekly snapshot of what you intended to act on, what moved, and what stayed intentionally dormant.</p>
+        <p>No tasks. No streaks. No pressure.</p>
+      </div>
+      
+      <div class="pricing-cards">
+        <div class="pricing-card">
+          <div class="pricing-price">
+            <span class="price-amount">$3.49</span>
+            <span class="price-period">/ month</span>
+          </div>
+          <button id="unlock-monthly-btn" class="btn btn-primary">Subscribe Monthly</button>
+          <p class="pricing-note">Billed monthly, cancel anytime</p>
+        </div>
+        
+        <div class="pricing-card pricing-card-featured">
+          <div class="pricing-badge">Best Value</div>
+          <div class="pricing-price">
+            <span class="price-amount">$29</span>
+            <span class="price-period">/ year</span>
+          </div>
+          <button id="unlock-yearly-btn" class="btn btn-primary">Subscribe Yearly</button>
+          <p class="pricing-note">Save $12.88 per year</p>
+        </div>
+      </div>
+      
+      <div id="loading-section" class="loading-section" style="display: none;">
+        <p>Redirecting to secure checkout...</p>
+      </div>
+      
+      <div id="error-section" class="error-section" style="display: none;">
+        <div class="error-message" id="error-message"></div>
+        <button id="retry-btn" class="btn btn-secondary">Try Again</button>
+      </div>
+      
+      <div id="dev-section" style="display: none;">
+        <hr>
+        <h3>Development Mode</h3>
+        <p>For testing without Stripe</p>
+        <div class="unlock-form">
+          <label for="license-key">Enter License Key (Dev Only)</label>
+          <input type="text" id="license-key" placeholder="DD-XXXX-XXXX" pattern="DD-[A-Z0-9]{4}-[A-Z0-9]{4}">
+          <button id="activate-btn" class="btn btn-secondary">Activate (Dev)</button>
+          <div id="unlock-error" class="error-message" style="display: none;"></div>
+          <div id="unlock-success" class="success-message" style="display: none;"></div>
+        </div>
+        <button id="dev-enable-btn" class="btn btn-secondary">Enable Pro (Dev)</button>
+        <button id="dev-disable-btn" class="btn btn-secondary">Disable Pro</button>
+      </div>
+      
+      <div class="features-section">
+        <div class="features-pro">
+          <h2>Pro Includes</h2>
+          <ul>
+            <li>Automatic weekly receipt notification</li>
+            <li>Week-over-week comparison</li>
+            <li>Decision latency trend</li>
+            <li>Intent honesty breakdown</li>
+          </ul>
+        </div>
+        
+        <div class="features-free">
+          <h2>Always Free</h2>
+          <ul>
+            <li>Intent tagging</li>
+            <li>Review/declutter</li>
+            <li>Manual receipt generation</li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="actions">
+        <a href="receipt.html" class="btn btn-secondary">Back to Receipt</a>
+      </div>
+    </div>
+  </div>
+  
+  <script src="pricing.js"></script>
+</body>
+</html>

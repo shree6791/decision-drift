@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Decision Receipt - Decision Drift</title>
+  <link rel="stylesheet" href="ui.css">
+</head>
+<body>
+  <div class="container">
+    <nav class="page-nav">
+      <a href="receipt.html" class="active">Receipt</a>
+      <a href="review.html">Review</a>
+      <a href="pricing.html">Pricing</a>
+    </nav>
+    
+    <header>
+      <h1>Decision Receipt</h1>
+      <p class="subtitle">Your bookmark decisions from the last 7 days</p>
+    </header>
+    
+    <div class="receipt-content">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="total-saved">0</div>
+          <div class="stat-label">Total Saved</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="apply-count">0</div>
+          <div class="stat-label">Apply</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="reference-count">0</div>
+          <div class="stat-label">Reference</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="interesting-count">0</div>
+          <div class="stat-label">Interesting</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="skipped-count">0</div>
+          <div class="stat-label">Skipped</div>
+        </div>
+      </div>
+      
+      <div id="upsell-prompt" class="upsell-prompt" style="display: none;">
+        <p>Want this automatically every week?</p>
+        <a href="pricing.html" class="btn btn-primary">Upgrade to Pro</a>
+      </div>
+      
+      <div id="trends-section" class="trends-section" style="display: none;">
+        <h2>Trends (Pro)</h2>
+        <div class="trends-grid" id="trends-grid">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+      
+      <div id="pro-locked" class="pro-locked" style="display: none;">
+        <h2>Want this automatically every week?</h2>
+        <p>Get automatic weekly receipts and week-over-week insights with Pro.</p>
+        <a href="pricing.html" class="btn btn-primary">Upgrade to Pro</a>
+      </div>
+      
+      <div class="actions">
+        <button id="generate-btn" class="btn btn-primary">Generate Receipt</button>
+        <a href="options.html" class="btn btn-secondary">Back to Options</a>
+      </div>
+    </div>
+  </div>
+  
+  <script src="receipt.js"></script>
+</body>
+</html>

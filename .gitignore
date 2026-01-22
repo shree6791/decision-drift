@@ -1,0 +1,21 @@
+# Chrome Extension
+*.crx
+*.pem
+
+# Icons (if you add real icons, you might want to commit them)
+# icons/*.png
+
+# Backend
+backend/node_modules/
+backend/.env
+backend/dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

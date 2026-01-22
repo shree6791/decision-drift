@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Generate Icons</title>
+</head>
+<body>
+  <h1>Decision Drift Icon Generator</h1>
+  <p>Open this file in a browser and right-click each canvas to save as PNG.</p>
+  
+  <h2>Icon 16x16</h2>
+  <canvas id="icon16" width="16" height="16"></canvas>
+  <p>Right-click → Save image as → icon16.png</p>
+  
+  <h2>Icon 48x48</h2>
+  <canvas id="icon48" width="48" height="48"></canvas>
+  <p>Right-click → Save image as → icon48.png</p>
+  
+  <h2>Icon 128x128</h2>
+  <canvas id="icon128" width="128" height="128"></canvas>
+  <p>Right-click → Save image as → icon128.png</p>
+  
+  <script>
+    function drawIcon(canvas, size) {
+      const ctx = canvas.getContext('2d');
+      
+      // Background
+      ctx.fillStyle = '#007bff';
+      ctx.fillRect(0, 0, size, size);
+      
+      // Simple bookmark icon (triangle + rectangle)
+      ctx.fillStyle = 'white';
+      const margin = size * 0.2;
+      const width = size - (margin * 2);
+      const height = size - (margin * 2);
+      
+      // Bookmark shape
+      ctx.beginPath();
+      ctx.moveTo(margin, margin);
+      ctx.lineTo(margin + width * 0.6, margin);
+      ctx.lineTo(margin + width * 0.6, margin + height * 0.7);
+      ctx.lineTo(margin + width * 0.5, margin + height * 0.8);
+      ctx.lineTo(margin + width * 0.4, margin + height * 0.7);
+      ctx.lineTo(margin + width * 0.4, margin);
+      ctx.closePath();
+      ctx.fill();
+    }
+    
+    drawIcon(document.getElementById('icon16'), 16);
+    drawIcon(document.getElementById('icon48'), 48);
+    drawIcon(document.getElementById('icon128'), 128);
+  </script>
+</body>
+</html>

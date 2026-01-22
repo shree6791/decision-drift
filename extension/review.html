@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review Bookmarks - Decision Drift</title>
+  <link rel="stylesheet" href="ui.css">
+</head>
+<body>
+  <div class="container">
+    <nav class="page-nav">
+      <a href="receipt.html">Receipt</a>
+      <a href="review.html" class="active">Review</a>
+      <a href="pricing.html">Pricing</a>
+    </nav>
+    
+    <header>
+      <h1>Review Bookmarks</h1>
+      <p class="subtitle">Manage your saved bookmarks and their intents</p>
+    </header>
+    
+    <div class="review-content">
+      <div class="search-bar">
+        <input type="text" id="search-input" placeholder="Search by title or domain...">
+      </div>
+      
+      <div class="filter-bar">
+        <label>
+          <input type="checkbox" id="show-archived" checked>
+          Show archived
+        </label>
+      </div>
+      
+      <div id="bookmarks-list" class="bookmarks-list">
+        <!-- Populated by JS -->
+      </div>
+      
+      <div class="actions">
+        <a href="options.html" class="btn btn-secondary">Back to Options</a>
+      </div>
+    </div>
+  </div>
+  
+  <script src="review.js"></script>
+</body>
+</html>
