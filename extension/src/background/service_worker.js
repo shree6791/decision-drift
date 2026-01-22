@@ -352,6 +352,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
   }
+  
+  if (message.type === 'DD_ACTIVATE_FROM_PAYMENT') {
+    activateProFromPayment(message.payload.sessionId, message.payload.userId)
+      .then(() => sendResponse({ success: true }))
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
 });
 
 async function handleSetIntent({ bookmarkId, intent }) {
@@ -433,6 +440,51 @@ chrome.notifications.onClicked.addListener((notificationId) => {
 
 // Backend URL - Update this to your deployed backend URL
 const BACKEND_URL = 'https://your-backend-url.com'; // TODO: Replace with your backend URL
+
+// Activate Pro from payment session
+async function activateProFromPayment(sessionId, userId) {
+  try {
+    // First try auto-create license endpoint (fallback if webhook didn't fire)
+    const autoResponse = await fetch(`${BACKEND_URL}/api/auto-create-license`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, userId })
+    });
+    
+    if (autoResponse.ok) {
+      const autoData = await autoResponse.json();
+      if (autoData.success && autoData.licenseKey) {
+        // Pro activated via auto-create
+        const proData = {
+          enabled: true,
+          enabledAt: Date.now(),
+          method: 'stripe',
+          licenseKey: autoData.licenseKey
+        };
+        await chrome.storage.local.set({ [PRO_KEY]: proData });
+        await setupWeeklyAlarm();
+        
+        // Notify all extension pages
+        chrome.runtime.sendMessage({ type: 'DD_PRO_UPDATED' }).catch(() => {});
+        return;
+      }
+    }
+    
+    // Fallback: verify Pro status
+    const verifyResponse = await handleVerifyProStatus();
+    if (verifyResponse.success && verifyResponse.plan === 'pro') {
+      // Already activated via webhook
+      chrome.runtime.sendMessage({ type: 'DD_PRO_UPDATED' }).catch(() => {});
+      return;
+    }
+  } catch (error) {
+    // Payment may still be processing, try verification
+    const verifyResponse = await handleVerifyProStatus();
+    if (verifyResponse.success && verifyResponse.plan === 'pro') {
+      chrome.runtime.sendMessage({ type: 'DD_PRO_UPDATED' }).catch(() => {});
+    }
+  }
+}
 
 // Verify Pro status with backend
 async function handleVerifyProStatus() {

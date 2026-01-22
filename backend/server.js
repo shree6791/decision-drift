@@ -21,6 +21,7 @@ const IS_DEVELOPMENT = NODE_ENV === 'development';
 
 // Constants
 const STRIPE_PRICE_ID = process.env.STRIPE_PRICE_ID;
+const BACKEND_URL = process.env.BACKEND_URL || (IS_DEVELOPMENT ? `http://localhost:${PORT}` : 'https://your-backend-url.com');
 
 if (!STRIPE_PRICE_ID) {
   console.error('ERROR: STRIPE_PRICE_ID environment variable is required');
@@ -177,9 +178,10 @@ app.post('/api/create-checkout-session', async (req, res) => {
       console.log(`[CHECKOUT] Creating session for userId: ${userId}`);
     }
 
-    // Build extension URLs dynamically
-    const successUrl = `${buildExtensionUrl(extensionId, 'pricing.html')}?success=true&session_id={CHECKOUT_SESSION_ID}`;
-    const cancelUrl = buildExtensionUrl(extensionId, 'pricing.html');
+    // Use web-accessible success/cancel pages
+    // Extension will check localStorage for payment completion
+    const successUrl = `${BACKEND_URL}/success?session_id={CHECKOUT_SESSION_ID}&userId=${encodeURIComponent(userId)}`;
+    const cancelUrl = `${BACKEND_URL}/cancel`;
 
     // Get or create Stripe customer
     let customerId = userStore.get(userId)?.customerId;
@@ -455,6 +457,122 @@ if (IS_DEVELOPMENT) {
     res.json({ count: userStore.size, licenses: licenseList });
   });
 }
+
+/**
+ * Success page (after Stripe checkout)
+ * Stores payment info in localStorage - extension will pick it up automatically
+ */
+app.get('/success', (req, res) => {
+  const { session_id, userId } = req.query;
+  
+  res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <title>Payment Successful - Decision Drift</title>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #f5f5f5;
+      text-align: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      max-width: 500px;
+    }
+    h1 { color: #1a1a1a; margin: 0 0 20px 0; font-size: 28px; }
+    p { color: #666; line-height: 1.6; margin: 10px 0; }
+    .success-icon { font-size: 48px; margin-bottom: 20px; }
+    .instruction {
+      background: #f0f7ff;
+      border-left: 4px solid #007bff;
+      padding: 16px;
+      margin: 20px 0;
+      text-align: left;
+      border-radius: 4px;
+    }
+    .instruction strong { color: #007bff; display: block; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="success-icon">✅</div>
+    <h1>Payment Successful!</h1>
+    <p><strong>Your Pro subscription is being activated...</strong></p>
+    <div class="instruction">
+      <strong>Next Steps:</strong>
+      <p>1. Open the Decision Drift extension</p>
+      <p>2. Right-click the extension icon → <strong>Options</strong></p>
+      <p>3. Your Pro features will be activated automatically</p>
+    </div>
+    <p style="color: #999; font-size: 14px; margin-top: 30px;">
+      The extension will automatically detect your payment and activate Pro features.
+    </p>
+  </div>
+  <script>
+    try {
+      ${session_id ? `localStorage.setItem('ddPaymentSessionId', ${JSON.stringify(session_id)});` : ''}
+      ${userId ? `localStorage.setItem('ddPaymentUserId', ${JSON.stringify(userId)});` : ''}
+      localStorage.setItem('ddPaymentTime', Date.now().toString());
+    } catch(e) {
+      console.error('Could not store payment info:', e);
+    }
+  </script>
+</body>
+</html>`);
+});
+
+/**
+ * Cancel page (if user cancels checkout)
+ */
+app.get('/cancel', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html>
+<head>
+  <title>Payment Cancelled - Decision Drift</title>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      margin: 0;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      text-align: center;
+      max-width: 500px;
+    }
+    h1 { color: #666; margin: 0 0 20px 0; }
+    p { color: #666; line-height: 1.6; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Payment Cancelled</h1>
+    <p>You can return to the extension and try again anytime.</p>
+    <p style="color: #999; font-size: 14px; margin-top: 20px;">
+      Right-click the extension icon → Options → Pricing
+    </p>
+  </div>
+</body>
+</html>`);
+});
 
 // Health check
 app.get('/health', (req, res) => {

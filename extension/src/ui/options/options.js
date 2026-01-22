@@ -10,6 +10,9 @@ let isPro = false;
 let userId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Check for payment completion first
+  await checkPaymentCompletion();
+  
   await loadPlan();
   renderPlanUI();
   
@@ -23,6 +26,50 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   document.getElementById('manage-subscription-btn')?.addEventListener('click', handleManageSubscription);
 });
+
+// Check for payment completion from localStorage
+async function checkPaymentCompletion() {
+  try {
+    // Check localStorage directly (we're in extension page context)
+    const sessionId = localStorage.getItem('ddPaymentSessionId');
+    const userId = localStorage.getItem('ddPaymentUserId');
+    const paymentTime = localStorage.getItem('ddPaymentTime');
+    
+    if (sessionId && userId && paymentTime) {
+      // Check if payment was recent (within last 10 minutes)
+      const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+      if (parseInt(paymentTime) >= tenMinutesAgo) {
+        // Clear localStorage
+        localStorage.removeItem('ddPaymentSessionId');
+        localStorage.removeItem('ddPaymentUserId');
+        localStorage.removeItem('ddPaymentTime');
+        
+        // Request background script to activate Pro
+        const response = await chrome.runtime.sendMessage({ 
+          type: 'DD_ACTIVATE_FROM_PAYMENT',
+          payload: { sessionId, userId }
+        });
+        
+        if (response && response.success) {
+          // Pro activated, reload plan
+          await loadPlan();
+          renderPlanUI();
+          return true;
+        }
+      } else {
+        // Too old, clear it
+        localStorage.removeItem('ddPaymentSessionId');
+        localStorage.removeItem('ddPaymentUserId');
+        localStorage.removeItem('ddPaymentTime');
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    // Silently fail
+    return false;
+  }
+}
 
 async function loadPlan() {
   const data = await chrome.storage.local.get([PRO_KEY, USER_ID_KEY]);

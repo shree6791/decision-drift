@@ -18,10 +18,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   await generateReceipt();
   await renderTrends();
   
-  document.getElementById('generate-btn').addEventListener('click', async () => {
-    await generateReceipt();
-    await renderTrends();
-  });
+  const generateBtn = document.getElementById('generate-btn');
+  if (generateBtn) {
+    generateBtn.addEventListener('click', async () => {
+      await generateReceipt();
+      await renderTrends();
+    });
+  }
 });
 
 async function generateReceipt() {

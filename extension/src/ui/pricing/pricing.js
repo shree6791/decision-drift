@@ -10,6 +10,9 @@ const BACKEND_URL = 'https://decision-drift.onrender.com'; // TODO: Replace with
 let userId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Check for payment completion first (similar to options page)
+  await checkPaymentCompletion();
+  
   const isPro = await checkProStatus();
   
   // If already Pro, don't set up checkout buttons
@@ -58,6 +61,49 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
+// Check for payment completion from localStorage
+async function checkPaymentCompletion() {
+  try {
+    // Check localStorage directly (we're in extension page context)
+    const sessionId = localStorage.getItem('ddPaymentSessionId');
+    const userIdFromLs = localStorage.getItem('ddPaymentUserId');
+    const paymentTime = localStorage.getItem('ddPaymentTime');
+    
+    if (sessionId && userIdFromLs && paymentTime) {
+      // Check if payment was recent (within last 10 minutes)
+      const tenMinutesAgo = Date.now() - (10 * 60 * 1000);
+      if (parseInt(paymentTime) >= tenMinutesAgo) {
+        // Clear localStorage
+        localStorage.removeItem('ddPaymentSessionId');
+        localStorage.removeItem('ddPaymentUserId');
+        localStorage.removeItem('ddPaymentTime');
+        
+        // Request background script to activate Pro
+        const response = await chrome.runtime.sendMessage({ 
+          type: 'DD_ACTIVATE_FROM_PAYMENT',
+          payload: { sessionId, userId: userIdFromLs }
+        });
+        
+        if (response && response.success) {
+          // Pro activated, refresh status
+          await checkProStatus();
+          return true;
+        }
+      } else {
+        // Too old, clear it
+        localStorage.removeItem('ddPaymentSessionId');
+        localStorage.removeItem('ddPaymentUserId');
+        localStorage.removeItem('ddPaymentTime');
+      }
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error checking payment completion:', error);
+    return false;
+  }
+}
+
 async function checkProStatus() {
   const data = await chrome.storage.local.get(PRO_KEY);
   const pro = data[PRO_KEY];
@@ -69,7 +115,7 @@ async function checkProStatus() {
         <div class="pro-active">
           <h2>✅ Pro is Active</h2>
           <p>You're enjoying all Pro features!</p>
-          <a href="receipt.html" class="btn btn-primary">View Receipt</a>
+          <a href="../receipt/receipt.html" class="btn btn-primary">View Receipt</a>
         </div>
       `;
     }
@@ -150,35 +196,18 @@ async function handleStripeCheckout() {
 }
 
 async function handleStripeSuccess() {
-  // Verify Pro status with backend
-  try {
-    const response = await chrome.runtime.sendMessage({
-      type: 'DD_VERIFY_PRO_STATUS'
-    });
-    
-    if (response && response.success) {
-      // Show success message
-      document.querySelector('.pricing-content').innerHTML = `
-        <div class="pro-active">
-          <h2>✅ Payment Successful!</h2>
-          <p>Your Pro subscription is now active. Enjoy automatic weekly receipts and insights!</p>
-          <a href="receipt.html" class="btn btn-primary">View Receipt</a>
-        </div>
-      `;
-    } else {
-      // Payment may still be processing
-      document.querySelector('.pricing-content').innerHTML = `
-        <div class="pro-active">
-          <h2>Payment Received</h2>
-          <p>Your payment is being processed. Pro features will be activated shortly.</p>
-          <p>If you don't see Pro activated within a few minutes, please contact support.</p>
-          <a href="receipt.html" class="btn btn-primary">View Receipt</a>
-        </div>
-      `;
-    }
-  } catch (error) {
-    // Silently handle verification errors - payment may still be processing
-  }
+  // Payment success is handled via the backend success page
+  // which stores payment info in localStorage
+  // The options page will automatically detect and activate Pro
+  // Just show a message directing user to options page
+  document.querySelector('.pricing-content').innerHTML = `
+    <div class="pro-active">
+      <h2>✅ Payment Successful!</h2>
+      <p>Your payment has been received. Pro features are being activated...</p>
+      <p><strong>Next step:</strong> Open the extension options page to see your Pro features activate automatically.</p>
+      <a href="../options/options.html" class="btn btn-primary">Open Options</a>
+    </div>
+  `;
 }
 
 async function handleActivate() {
