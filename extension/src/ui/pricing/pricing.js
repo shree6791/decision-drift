@@ -7,6 +7,9 @@ const DEV_MODE = false; // Set to true for dev, or check manifest version
 // Backend URL - Update this to your deployed backend URL
 const BACKEND_URL = 'https://decision-drift.onrender.com'; // TODO: Replace with your backend URL
 
+// Pro subscription price
+const PRO_PRICE = '$3.49/month';
+
 let userId = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -20,6 +23,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!userId) {
     userId = `dd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     await chrome.storage.local.set({ [USER_ID_KEY]: userId });
+  }
+  
+  // Set the price in the table
+  const priceElement = document.getElementById('pro-price');
+  if (priceElement) {
+    priceElement.textContent = PRO_PRICE;
   }
   
   const isPro = await checkProStatus();
