@@ -13,6 +13,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Check for payment completion first (from URL params or localStorage)
   await checkPaymentCompletion();
   
+  // Also verify Pro status with backend (in case webhook activated it)
+  await verifyProStatusWithBackend();
+  
   await loadPlan();
   renderPlanUI();
   
@@ -85,6 +88,34 @@ async function checkPaymentCompletion() {
   } catch (error) {
     console.error('Error checking payment completion:', error);
     return false;
+  }
+}
+
+// Verify Pro status with backend (in case webhook activated it)
+async function verifyProStatusWithBackend() {
+  try {
+    const data = await chrome.storage.local.get([USER_ID_KEY, PRO_KEY]);
+    const currentUserId = data[USER_ID_KEY];
+    const currentPro = data[PRO_KEY] || { enabled: false };
+    
+    // Only check if we have a userId and we're not already Pro
+    if (!currentUserId || currentPro.enabled) {
+      return;
+    }
+    
+    // Request background script to verify Pro status
+    const response = await chrome.runtime.sendMessage({ 
+      type: 'DD_VERIFY_PRO_STATUS'
+    });
+    
+    if (response && response.success && response.plan === 'pro') {
+      // Pro is active, reload plan
+      await loadPlan();
+      renderPlanUI();
+    }
+  } catch (error) {
+    // Silently fail - don't block page load
+    console.error('Error verifying Pro status:', error);
   }
 }
 

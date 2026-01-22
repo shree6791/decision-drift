@@ -439,7 +439,7 @@ chrome.notifications.onClicked.addListener((notificationId) => {
 });
 
 // Backend URL - Update this to your deployed backend URL
-const BACKEND_URL = 'https://your-backend-url.com'; // TODO: Replace with your backend URL
+const BACKEND_URL = 'https://decision-drift.onrender.com';
 
 // Activate Pro from payment session
 async function activateProFromPayment(sessionId, userId) {
@@ -466,7 +466,7 @@ async function activateProFromPayment(sessionId, userId) {
         
         // Notify all extension pages
         chrome.runtime.sendMessage({ type: 'DD_PRO_UPDATED' }).catch(() => {});
-        return;
+        return { success: true };
       }
     }
     
@@ -475,14 +475,20 @@ async function activateProFromPayment(sessionId, userId) {
     if (verifyResponse.success && verifyResponse.plan === 'pro') {
       // Already activated via webhook
       chrome.runtime.sendMessage({ type: 'DD_PRO_UPDATED' }).catch(() => {});
-      return;
+      return { success: true };
     }
+    
+    // If we get here, activation failed
+    return { success: false, error: 'Payment not yet processed' };
   } catch (error) {
+    console.error('Payment activation error:', error);
     // Payment may still be processing, try verification
     const verifyResponse = await handleVerifyProStatus();
     if (verifyResponse.success && verifyResponse.plan === 'pro') {
       chrome.runtime.sendMessage({ type: 'DD_PRO_UPDATED' }).catch(() => {});
+      return { success: true };
     }
+    return { success: false, error: error.message };
   }
 }
 

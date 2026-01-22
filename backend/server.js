@@ -507,19 +507,6 @@ app.get('/success', (req, res) => {
       border-radius: 4px;
     }
     .instruction strong { color: #007bff; display: block; margin-bottom: 8px; }
-    .button {
-      display: inline-block;
-      margin-top: 20px;
-      padding: 12px 24px;
-      background: #007bff;
-      color: white;
-      text-decoration: none;
-      border-radius: 6px;
-      font-weight: 500;
-    }
-    .button:hover {
-      background: #0056b3;
-    }
   </style>
 </head>
 <body>
@@ -529,10 +516,10 @@ app.get('/success', (req, res) => {
     <p><strong>Your Pro subscription is being activated...</strong></p>
     <div class="instruction">
       <strong>Next Steps:</strong>
-      <p>1. Click the button below to open the extension</p>
-      <p>2. Your Pro features will be activated automatically</p>
+      <p>1. Open the Decision Drift extension</p>
+      <p>2. Right-click the extension icon → <strong>Options</strong></p>
+      <p>3. Your Pro features will be activated automatically</p>
     </div>
-    ${extensionId ? `<a href="chrome-extension://${extensionId}/src/ui/options/options.html?payment_success=true&session_id=${encodeURIComponent(session_id || '')}&userId=${encodeURIComponent(userId || '')}" class="button">Open Extension</a>` : '<p style="color: #999; font-size: 14px; margin-top: 30px;">Please open the extension manually: Right-click the extension icon → Options</p>'}
     <p style="color: #999; font-size: 14px; margin-top: 30px;">
       The extension will automatically detect your payment and activate Pro features.
     </p>
