@@ -1,10 +1,8 @@
 // Options Page
-
+// Constants (using inline for UI pages - can't use importScripts)
 const PRO_KEY = 'dd_pro';
 const USER_ID_KEY = 'dd_userId';
-
-// Backend URL - Update this to your deployed backend URL
-const BACKEND_URL = 'https://decision-drift.onrender.com'; // TODO: Replace with your backend URL
+const BACKEND_URL = 'https://decision-drift.onrender.com';
 
 let isPro = false;
 let userId = null;

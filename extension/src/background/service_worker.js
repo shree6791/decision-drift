@@ -188,31 +188,38 @@ function injectPrompt(bookmarkId, title, url) {
   }
 }
 
-const STORAGE_KEY = 'dd_records';
-const LAST_RECEIPT_KEY = 'dd_lastReceiptAt';
-const USER_ID_KEY = 'dd_userId';
-const PRO_KEY = 'dd_pro';
-const RECEIPT_VIEWS_KEY = 'dd_receiptViews';
+// Import constants (using importScripts in service worker context)
+importScripts('src/shared/constants.js');
 
-// Initialize storage on install
+const STORAGE_KEY = DD_CONSTANTS.STORAGE_KEY;
+const LAST_RECEIPT_KEY = DD_CONSTANTS.LAST_RECEIPT_KEY;
+const USER_ID_KEY = DD_CONSTANTS.USER_ID_KEY;
+const PRO_KEY = DD_CONSTANTS.PRO_KEY;
+const RECEIPT_VIEWS_KEY = DD_CONSTANTS.RECEIPT_VIEWS_KEY;
+const BACKEND_URL = DD_CONSTANTS.BACKEND_URL;
+
+// Initialize storage on install (batched for efficiency)
 chrome.runtime.onInstalled.addListener(async () => {
   const data = await chrome.storage.local.get([STORAGE_KEY, LAST_RECEIPT_KEY, USER_ID_KEY, PRO_KEY, RECEIPT_VIEWS_KEY]);
   
+  // Batch all storage updates into a single call
+  const updates = {};
   if (!data[STORAGE_KEY]) {
-    await chrome.storage.local.set({ [STORAGE_KEY]: {} });
+    updates[STORAGE_KEY] = {};
   }
-  
   if (!data[USER_ID_KEY]) {
-    const userId = `dd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    await chrome.storage.local.set({ [USER_ID_KEY]: userId });
+    updates[USER_ID_KEY] = `dd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
-  
   if (!data[PRO_KEY]) {
-    await chrome.storage.local.set({ [PRO_KEY]: { enabled: false, enabledAt: null, method: null } });
+    updates[PRO_KEY] = { enabled: false, enabledAt: null, method: null };
+  }
+  if (data[RECEIPT_VIEWS_KEY] === undefined) {
+    updates[RECEIPT_VIEWS_KEY] = 0;
   }
   
-  if (data[RECEIPT_VIEWS_KEY] === undefined) {
-    await chrome.storage.local.set({ [RECEIPT_VIEWS_KEY]: 0 });
+  // Single storage write for all updates
+  if (Object.keys(updates).length > 0) {
+    await chrome.storage.local.set(updates);
   }
   
   // Set up weekly alarm for receipt (only if Pro)
@@ -256,22 +263,29 @@ chrome.bookmarks.onCreated.addListener(async (bookmarkId, bookmark) => {
   records[bookmarkId] = record;
   await chrome.storage.local.set({ [STORAGE_KEY]: records });
   
-  // Find active tab to inject prompt
-  try {
-    const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-    if (tabs.length > 0) {
-      const activeTab = tabs[0];
-      
-      // Inject content script with arguments
-      await chrome.scripting.executeScript({
-        target: { tabId: activeTab.id },
-        func: injectPrompt,
-        args: [bookmarkId.toString(), bookmark.title || new URL(bookmark.url).hostname, bookmark.url]
-      });
-    }
-  } catch (error) {
-    console.error('Failed to inject prompt:', error);
-  }
+  // Find active tab to inject prompt (non-blocking)
+  chrome.tabs.query({ active: true, lastFocusedWindow: true })
+    .then(tabs => {
+      if (tabs.length > 0) {
+        const activeTab = tabs[0];
+        const title = bookmark.title || new URL(bookmark.url).hostname;
+        
+        // Inject content script (don't await to avoid blocking)
+        chrome.scripting.executeScript({
+          target: { tabId: activeTab.id },
+          func: injectPrompt,
+          args: [bookmarkId.toString(), title, bookmark.url]
+        }).catch(error => {
+          // Silently fail - injection may not work on all pages (e.g., chrome://)
+          if (error.message && !error.message.includes('Cannot access')) {
+            console.error('Failed to inject prompt:', error);
+          }
+        });
+      }
+    })
+    .catch(() => {
+      // Silently fail if tab query fails
+    });
 });
 
 // Handle messages from content script and UI
@@ -366,8 +380,10 @@ async function handleSetIntent({ bookmarkId, intent }) {
   const records = data[STORAGE_KEY] || {};
   
   if (records[bookmarkId]) {
-    records[bookmarkId].intent = intent;
-    records[bookmarkId].decidedAt = Date.now();
+    // Update in place for efficiency
+    const record = records[bookmarkId];
+    record.intent = intent;
+    record.decidedAt = Date.now();
     await chrome.storage.local.set({ [STORAGE_KEY]: records });
   }
 }
@@ -377,8 +393,10 @@ async function handleDismiss({ bookmarkId }) {
   const records = data[STORAGE_KEY] || {};
   
   if (records[bookmarkId]) {
-    records[bookmarkId].intent = 'skipped';
-    records[bookmarkId].decidedAt = Date.now();
+    // Update in place for efficiency
+    const record = records[bookmarkId];
+    record.intent = 'skipped';
+    record.decidedAt = Date.now();
     await chrome.storage.local.set({ [STORAGE_KEY]: records });
   }
 }
@@ -438,8 +456,7 @@ chrome.notifications.onClicked.addListener((notificationId) => {
   chrome.notifications.clear(notificationId);
 });
 
-// Backend URL - Update this to your deployed backend URL
-const BACKEND_URL = 'https://decision-drift.onrender.com';
+// Backend URL is imported from constants above
 
 // Activate Pro from payment session
 async function activateProFromPayment(sessionId, userId) {

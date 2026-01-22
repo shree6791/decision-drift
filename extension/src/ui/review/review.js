@@ -35,25 +35,34 @@ function handleFilter() {
 
 function applyFilters(query) {
   const showArchived = document.getElementById('show-archived').checked;
+  const queryLower = query ? query.toLowerCase() : '';
   
+  // Pre-compute domain for each record to avoid repeated URL parsing
   filteredRecords = allRecords.filter(record => {
-    // Search filter
-    if (query) {
-      const titleMatch = (record.title || '').toLowerCase().includes(query);
-      let domainMatch = false;
-      try {
-        const domain = new URL(record.url).hostname;
-        domainMatch = domain.toLowerCase().includes(query);
-      } catch (e) {
-        domainMatch = record.url.toLowerCase().includes(query);
-      }
-      if (!titleMatch && !domainMatch) {
-        return false;
-      }
+    // Archive filter (check first as it's faster)
+    if (!showArchived && record.archived) {
+      return false;
     }
     
-    // Archive filter
-    if (!showArchived && record.archived) {
+    // Search filter
+    if (queryLower) {
+      const titleLower = (record.title || '').toLowerCase();
+      if (titleLower.includes(queryLower)) {
+        return true;
+      }
+      
+      // Only parse URL if title doesn't match
+      try {
+        const domain = new URL(record.url).hostname.toLowerCase();
+        if (domain.includes(queryLower)) {
+          return true;
+        }
+      } catch (e) {
+        // Fallback to URL string match
+        if (record.url.toLowerCase().includes(queryLower)) {
+          return true;
+        }
+      }
       return false;
     }
     
@@ -71,7 +80,8 @@ function renderList() {
     return;
   }
   
-  container.innerHTML = filteredRecords.map(record => {
+  // Build HTML string in one pass for efficiency
+  const html = filteredRecords.map(record => {
     const domain = getDomain(record.url);
     const date = new Date(record.createdAt).toLocaleDateString();
     const intent = record.intent || 'pending';
@@ -107,9 +117,15 @@ function renderList() {
     `;
   }).join('');
   
-  // Attach event listeners
-  container.querySelectorAll('[data-action]').forEach(btn => {
-    btn.addEventListener('click', handleAction);
+  // Single DOM update
+  container.innerHTML = html;
+  
+  // Attach event listeners (using event delegation for action buttons)
+  container.addEventListener('click', (e) => {
+    const actionBtn = e.target.closest('[data-action]');
+    if (actionBtn) {
+      handleAction({ target: actionBtn });
+    }
   });
   
   // Attach link click tracking

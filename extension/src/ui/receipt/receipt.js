@@ -1,5 +1,5 @@
 // Decision Receipt Page
-
+// Constants (using inline for UI pages)
 const STORAGE_KEY = 'dd_records';
 const LAST_RECEIPT_KEY = 'dd_lastReceiptAt';
 const PRO_KEY = 'dd_pro';
@@ -41,36 +41,38 @@ async function generateReceipt() {
     const data = await chrome.storage.local.get(STORAGE_KEY);
     const records = data[STORAGE_KEY] || {};
     
-    // Filter last 7 days
+    // Filter last 7 days and compute stats in single pass for efficiency
     const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-    const recentRecords = Object.values(records).filter(
-      record => record && record.createdAt && record.createdAt >= sevenDaysAgo
-    );
-    
-    // Compute stats (single pass for efficiency)
     const stats = {
-      total: recentRecords.length,
+      total: 0,
       apply: 0,
       reference: 0,
       interesting: 0,
       skipped: 0
     };
     
-    recentRecords.forEach(record => {
-      const intent = record.intent;
-      if (intent === 'apply') stats.apply++;
-      else if (intent === 'reference') stats.reference++;
-      else if (intent === 'interesting') stats.interesting++;
-      else stats.skipped++; // includes 'skipped' and null/undefined
-    });
+    // Single pass: filter and count simultaneously
+    const recentRecords = [];
+    for (const record of Object.values(records)) {
+      if (record && record.createdAt && record.createdAt >= sevenDaysAgo) {
+        recentRecords.push(record);
+        stats.total++;
+        const intent = record.intent;
+        if (intent === 'apply') stats.apply++;
+        else if (intent === 'reference') stats.reference++;
+        else if (intent === 'interesting') stats.interesting++;
+        else stats.skipped++; // includes 'skipped' and null/undefined
+      }
+    }
     
-    // Update UI
+    // Cache DOM queries
     const totalSavedEl = document.getElementById('total-saved');
     const applyCountEl = document.getElementById('apply-count');
     const referenceCountEl = document.getElementById('reference-count');
     const interestingCountEl = document.getElementById('interesting-count');
     const skippedCountEl = document.getElementById('skipped-count');
     
+    // Batch DOM updates
     if (totalSavedEl) totalSavedEl.textContent = stats.total;
     if (applyCountEl) applyCountEl.textContent = stats.apply;
     if (referenceCountEl) referenceCountEl.textContent = stats.reference;
@@ -161,37 +163,34 @@ async function renderTrends() {
   const data = await chrome.storage.local.get(STORAGE_KEY);
   const records = data[STORAGE_KEY] || {};
   
-  // Current 7 days
+  // Single pass: categorize records by time period and count intents
   const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-  const currentRecords = Object.values(records).filter(
-    record => record.createdAt >= sevenDaysAgo
-  );
-  
-  // Previous 7 days
   const fourteenDaysAgo = Date.now() - (14 * 24 * 60 * 60 * 1000);
-  const previousRecords = Object.values(records).filter(
-    record => record.createdAt >= fourteenDaysAgo && record.createdAt < sevenDaysAgo
-  );
   
-  // Compute current stats (single pass)
   const current = { apply: 0, reference: 0, interesting: 0, skipped: 0 };
-  currentRecords.forEach(r => {
-    const intent = r.intent;
-    if (intent === 'apply') current.apply++;
-    else if (intent === 'reference') current.reference++;
-    else if (intent === 'interesting') current.interesting++;
-    else current.skipped++;
-  });
-  
-  // Compute previous stats (single pass)
   const previous = { apply: 0, reference: 0, interesting: 0, skipped: 0 };
-  previousRecords.forEach(r => {
-    const intent = r.intent;
-    if (intent === 'apply') previous.apply++;
-    else if (intent === 'reference') previous.reference++;
-    else if (intent === 'interesting') previous.interesting++;
-    else previous.skipped++;
-  });
+  
+  // Single pass through all records
+  for (const record of Object.values(records)) {
+    if (!record || !record.createdAt) continue;
+    
+    const createdAt = record.createdAt;
+    const intent = record.intent;
+    
+    if (createdAt >= sevenDaysAgo) {
+      // Current period
+      if (intent === 'apply') current.apply++;
+      else if (intent === 'reference') current.reference++;
+      else if (intent === 'interesting') current.interesting++;
+      else current.skipped++;
+    } else if (createdAt >= fourteenDaysAgo) {
+      // Previous period
+      if (intent === 'apply') previous.apply++;
+      else if (intent === 'reference') previous.reference++;
+      else if (intent === 'interesting') previous.interesting++;
+      else previous.skipped++;
+    }
+  }
   
   // Compute deltas
   const deltas = {
@@ -201,18 +200,25 @@ async function renderTrends() {
     skipped: current.skipped - previous.skipped
   };
   
-  // Decision latency proxy (average time to first open for "apply" intents)
-  const applyRecords = currentRecords.filter(r => r.intent === 'apply' && r.openedAt);
-  let avgLatency = 0;
-  if (applyRecords.length > 0) {
-    const latencies = applyRecords.map(r => r.openedAt - r.createdAt);
-    avgLatency = latencies.reduce((a, b) => a + b, 0) / latencies.length;
-    avgLatency = Math.round(avgLatency / (24 * 60 * 60 * 1000)); // Convert to days
+  // Decision latency and honesty (computed in single pass)
+  let applyTotal = 0;
+  let applyOpened = 0;
+  let latencySum = 0;
+  
+  for (const record of Object.values(records)) {
+    if (!record || !record.createdAt || record.createdAt < sevenDaysAgo) continue;
+    if (record.intent === 'apply') {
+      applyTotal++;
+      if (record.openedAt) {
+        applyOpened++;
+        latencySum += record.openedAt - record.createdAt;
+      }
+    }
   }
   
-  // Intent honesty breakdown (apply vs actually opened)
-  const applyTotal = currentRecords.filter(r => r.intent === 'apply').length;
-  const applyOpened = currentRecords.filter(r => r.intent === 'apply' && r.openedAt).length;
+  const avgLatency = applyOpened > 0 
+    ? Math.round((latencySum / applyOpened) / (24 * 60 * 60 * 1000))
+    : 0;
   const honestyRate = applyTotal > 0 ? Math.round((applyOpened / applyTotal) * 100) : 0;
   
   // Render trends
