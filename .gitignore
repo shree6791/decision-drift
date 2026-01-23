@@ -10,6 +10,9 @@
 backend/node_modules/
 backend/.env
 backend/dist/
+backend/licenses.db
+backend/licenses.db-shm
+backend/licenses.db-wal
 
 # OS
 .DS_Store

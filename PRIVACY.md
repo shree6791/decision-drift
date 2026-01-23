@@ -54,13 +54,16 @@ If you choose to upgrade to Pro, we use **Stripe** for payment processing. When 
 
 ### Backend Server
 
-Our backend server only stores:
+Our backend server uses a local SQLite database (`licenses.db`) and only stores:
 - Anonymous user IDs
 - Stripe customer IDs
 - Subscription status (active/cancelled)
 - License keys (for Pro verification)
+- Activation timestamps
 
 **No bookmark data, URLs, or personal information is stored on our servers.**
+
+The database file is stored on the server and is not shared with third parties. It's automatically created on first run and excluded from version control.
 
 ## Data Sharing
 

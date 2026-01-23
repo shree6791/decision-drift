@@ -22,7 +22,8 @@ This guide will help you set up Stripe payments for Decision Drift.
 2. Name: `Decision Drift Pro`
 3. Description: `Pro plan subscription`
 4. Pricing: **Recurring**
-   - Set your price and billing period (monthly, yearly, etc.)
+   - Set price to **$3.49/month** (or your preferred price)
+   - Billing period: Monthly
    - You can create multiple prices for the same product if needed
 5. Click **Save product**
 6. **Copy the Price ID** (starts with `price_...`)
@@ -84,6 +85,7 @@ This guide will help you set up Stripe payments for Decision Drift.
    STRIPE_PRICE_ID=price_your_price_id_here
    NODE_ENV=development
    PORT=3000
+   BACKEND_URL=http://localhost:3000
    ```
 
 3. Install dependencies:
@@ -95,6 +97,8 @@ This guide will help you set up Stripe payments for Decision Drift.
    ```bash
    npm start
    ```
+
+   The SQLite database (`licenses.db`) will be automatically created on first run.
 
 ## Step 6: Deploy Backend Server
 
@@ -146,16 +150,13 @@ This guide will help you set up Stripe payments for Decision Drift.
 
 ### Update Backend URL
 
-Update `BACKEND_URL` in these files:
-- `extension/src/shared/constants.js` (shared constant)
-- `extension/src/background/service_worker.js` (if not using shared)
-- `extension/src/ui/options/options.js` (if not using shared)
-- `extension/src/ui/pricing/pricing.js` (if not using shared)
+Update `BACKEND_URL` in `extension/src/shared/constants.js`:
 
-Replace:
 ```javascript
 const BACKEND_URL = 'https://your-backend-url.com';
 ```
+
+This constant is automatically used by all extension files that need the backend URL.
 
 ### Update Webhook URL in Stripe
 
@@ -197,10 +198,14 @@ const BACKEND_URL = 'https://your-backend-url.com';
 - `STRIPE_WEBHOOK_SECRET` - Webhook signing secret
 
 **Optional:**
-- `NODE_ENV` - `development` (detailed logs) or `production` (secure)
+- `NODE_ENV` - `development` (detailed logs) or `production` (secure, default: development)
 - `PORT` - Server port (default: 3000)
+- `BACKEND_URL` - Backend URL (auto-detected in development, required in production)
 
-**Note:** Extension URLs are automatically constructed using the extension ID. No URL environment variables needed.
+**Note:** 
+- Extension URLs are automatically constructed using the extension ID
+- The SQLite database (`licenses.db`) is automatically created and stored in the `backend/` directory
+- Database file is excluded from git (see `.gitignore`)
 
 ## Troubleshooting
 

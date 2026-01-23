@@ -55,40 +55,36 @@ Generate icons using `scripts/generate-icons.html`:
    - Subscribe to unlock automatic weekly receipts and advanced insights
    - Manage your subscription anytime from the Options page
 
-## Testing Checklist
+## Testing
 
 ### Basic Functionality
-- [ ] Create a bookmark → Prompt appears → Choose intent → Verify stored
-- [ ] Create bookmark → Click Skip → Verify "skipped" intent stored
-- [ ] Create bookmark → Wait 30 seconds → Prompt auto-dismisses
+- Create a bookmark → Prompt appears → Choose intent → Verify stored
+- Create bookmark → Click Skip → Verify "skipped" intent stored
+- Create bookmark → Wait 30 seconds → Prompt auto-dismisses
 
 ### Receipt Page
-- [ ] Open receipt page → Shows counts for last 7 days
-- [ ] Click "Generate Receipt" → Counts update
-- [ ] Create multiple bookmarks with different intents → Verify counts correct
+- Open receipt page → Shows counts for last 7 days (auto-generates on load)
+- Create multiple bookmarks with different intents → Verify counts correct
+- Pro users: Verify trends section shows week-over-week comparison
 
 ### Review Page
-- [ ] Open review page → See list of bookmarks
-- [ ] Search by title → Results filter correctly
-- [ ] Search by domain → Results filter correctly
-- [ ] Toggle "Show archived" → Archived items show/hide
-- [ ] Click Archive → Bookmark marked as archived
-- [ ] Click Unarchive → Bookmark unarchived
-- [ ] Click "Remove Record" → Record removed (bookmark stays in Chrome)
-- [ ] Click "Delete Bookmark" → Bookmark deleted from Chrome
+- Open review page → See list of bookmarks
+- Search by title → Results filter correctly
+- Search by domain → Results filter correctly
+- Toggle "Show archived" → Archived items show/hide
+- Click Archive → Bookmark marked as archived
+- Click Unarchive → Bookmark unarchived
+- Click "Remove Record" → Record removed (bookmark stays in Chrome)
+- Click "Delete Bookmark" → Bookmark deleted from Chrome
 
-### Weekly Alarm
-- [ ] In `chrome://extensions` → Find extension → Click "service worker" link
-- [ ] In console, run: `chrome.alarms.create('DD_WEEKLY_RECEIPT', { delayInMinutes: 1 })`
-- [ ] Wait 1 minute → Notification appears
-- [ ] Click notification → Receipt page opens
+### Weekly Alarm (Pro Only)
+- In `chrome://extensions` → Find extension → Click "service worker" link
+- In console, run: `chrome.alarms.create('DD_WEEKLY_RECEIPT', { delayInMinutes: 1 })`
+- Wait 1 minute → Notification appears
+- Click notification → Receipt page opens
 
-### Payment Integration (Requires Backend)
-- [ ] Set up backend server (see `STRIPE_SETUP.md`)
-- [ ] Update `BACKEND_URL` in extension files
-- [ ] Click "Upgrade to Pro" → Stripe checkout opens
-- [ ] Complete payment → Plan updates to Pro
-- [ ] Click "Manage Subscription" → Stripe portal opens
+### Payment Integration
+See `STRIPE_SETUP.md` for complete setup and testing instructions.
 
 ## Project Structure
 
@@ -111,6 +107,7 @@ decision-drift/
   │           └── review/          # Bookmark review/declutter
   ├── backend/                      # Stripe payment backend
   │   ├── server.js                # Main server (Express)
+  │   ├── database.js              # SQLite database service
   │   ├── licenseService.js        # License creation & validation
   │   └── webhookHandlers.js       # Stripe webhook handlers
   ├── scripts/                      # Build/utility scripts
@@ -125,7 +122,9 @@ decision-drift/
 
 ## Data Storage
 
-All data is stored locally in `chrome.storage.local`:
+### Extension (Local Storage)
+
+All bookmark data is stored locally in `chrome.storage.local`:
 
 - `dd_records`: Object mapping bookmarkId → record
   ```js
@@ -136,7 +135,9 @@ All data is stored locally in `chrome.storage.local`:
     createdAt: number,
     intent: "reference"|"apply"|"interesting"|"skipped"|null,
     archived: boolean,
-    decidedAt?: number
+    decidedAt?: number,
+    openedAt?: number,
+    openCount?: number
   }
   ```
 - `dd_lastReceiptAt`: Timestamp of last receipt generation
@@ -144,19 +145,27 @@ All data is stored locally in `chrome.storage.local`:
 - `dd_userId`: Unique user ID for payment integration
 - `dd_receiptViews`: Number of times receipt page has been viewed
 
+### Backend (SQLite Database)
+
+The backend uses SQLite (`licenses.db`) to store:
+- User IDs and Stripe customer IDs
+- Subscription status and license keys
+- Activation timestamps
+
+**No bookmark data is stored on the backend** - all bookmark data remains local to your device.
+
 ## Permissions
 
 - `bookmarks`: Listen for bookmark creation
 - `storage`: Store records locally
-- `alarms`: Weekly receipt notifications
-- `notifications`: Show receipt ready notification
+- `alarms`: Weekly receipt notifications (Pro feature)
+- `notifications`: Show receipt ready notification (Pro feature)
 - `scripting`: Inject prompt UI into pages
-- `tabs`: Find active tab for injection
-- `<all_urls>`: Inject prompt on any site
+- `activeTab`: Access active tab for prompt injection (more secure than broad permissions)
 
 ## Payment Integration
 
-Decision Drift uses **Stripe** for secure payment processing. The Pro plan includes:
+Decision Drift uses **Stripe** for secure payment processing. The Pro plan ($3.49/month) includes:
 
 - **Automatic weekly receipt notifications**
 - **Week-over-week trend analysis**
@@ -172,16 +181,12 @@ Decision Drift uses **Stripe** for secure payment processing. The Pro plan inclu
 
 ### For Developers
 
-To set up payment processing for your own deployment, see `STRIPE_SETUP.md` for detailed instructions.
-
-**Quick Setup:**
-1. Deploy backend server (see `backend/server.js`)
-2. Update `BACKEND_URL` in extension files:
-   - `src/shared/constants.js`
-   - `src/background/service_worker.js`
-   - `src/ui/options/options.js`
-   - `src/ui/pricing/pricing.js`
-3. Configure Stripe keys and webhook (see `STRIPE_SETUP.md`)
+See `STRIPE_SETUP.md` for complete setup instructions, including:
+- Stripe account configuration
+- Backend deployment
+- Webhook setup
+- Environment variables
+- Testing procedures
 
 ## Development
 
@@ -218,6 +223,7 @@ Decision Drift is built with privacy in mind:
 - ✅ **Minimal backend usage** - Backend only used for payment processing (Stripe)
 - ✅ **Anonymous payments** - Only anonymous user IDs sent to backend, no personal information
 - ✅ **Secure payments** - Payment processing handled by Stripe (PCI DSS compliant)
+- ✅ **SQLite database** - Backend uses local SQLite file for license storage (no cloud database)
 
 For complete details, see [PRIVACY.md](PRIVACY.md).
 
