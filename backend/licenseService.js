@@ -1,15 +1,16 @@
 // License service for Decision Drift
 // Handles license creation, validation, and management
 
+const { getUser, getUserByCustomerId, setUser } = require('./database');
+
 /**
  * Create a license for a user after successful payment
  * @param {string} userId - User ID
  * @param {string} stripeCustomerId - Stripe customer ID
  * @param {string} subscriptionId - Stripe subscription ID
- * @param {Map} userStore - User store map
  * @returns {string} License key
  */
-function createLicense(userId, stripeCustomerId, subscriptionId, userStore) {
+function createLicense(userId, stripeCustomerId, subscriptionId) {
   const licenseKey = `dd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   
   const userData = {
@@ -21,7 +22,7 @@ function createLicense(userId, stripeCustomerId, subscriptionId, userStore) {
     status: 'active'
   };
   
-  userStore.set(userId, userData);
+  setUser(userId, userData);
   
   return licenseKey;
 }
@@ -29,21 +30,16 @@ function createLicense(userId, stripeCustomerId, subscriptionId, userStore) {
 /**
  * Find user ID by Stripe customer ID
  * @param {string} customerId - Stripe customer ID
- * @param {Map} userStore - User store map
  * @returns {string|null} User ID or null
  */
-function findUserIdByCustomerId(customerId, userStore) {
-  for (const [userId, user] of userStore.entries()) {
-    if (user.customerId === customerId) {
-      return userId;
-    }
-  }
-  return null;
+function findUserIdByCustomerId(customerId) {
+  const user = getUserByCustomerId(customerId);
+  return user ? user.userId : null;
 }
 
 /**
  * Check if license is valid (active)
- * @param {object} user - User data object
+ * @param {object} user - User data object (from database)
  * @returns {boolean} True if license is valid
  */
 function isValidLicense(user) {
@@ -53,8 +49,18 @@ function isValidLicense(user) {
   return true;
 }
 
+/**
+ * Get user by userId (helper function)
+ * @param {string} userId
+ * @returns {object|null}
+ */
+function getUserById(userId) {
+  return getUser(userId);
+}
+
 module.exports = {
   createLicense,
   findUserIdByCustomerId,
-  isValidLicense
+  isValidLicense,
+  getUserById
 };

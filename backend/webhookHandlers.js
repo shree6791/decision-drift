@@ -1,7 +1,8 @@
 // Webhook handlers for Decision Drift
 // Handles Stripe webhook events
 
-const { createLicense, findUserIdByCustomerId } = require('./licenseService');
+const { createLicense, findUserIdByCustomerId, getUserById } = require('./licenseService');
+const { setUser } = require('./database');
 
 /**
  * Initialize webhook handlers with Stripe instance
@@ -12,7 +13,7 @@ function initWebhookHandlers(stripe) {
   /**
    * Handle checkout.session.completed event
    */
-  async function handleCheckoutCompleted(session, userStore) {
+  async function handleCheckoutCompleted(session) {
     const userId = session.metadata?.userId || session.client_reference_id;
     
     if (!userId) {
@@ -35,15 +36,16 @@ function initWebhookHandlers(stripe) {
         const licenseKey = createLicense(
           userId,
           session.customer,
-          subscriptionId,
-          userStore
+          subscriptionId
         );
         
         // Store promotion code if used
-        const user = userStore.get(userId);
-        if (session.total_details?.amount_discount > 0) {
-          user.promotionCode = session.discount?.promotion_code?.code || null;
-          userStore.set(userId, user);
+        const user = getUserById(userId);
+        if (user && session.total_details?.amount_discount > 0) {
+          setUser(userId, {
+            ...user,
+            promotionCode: session.discount?.promotion_code?.code || null
+          });
         }
         
         console.log(`[WEBHOOK] ✅ Pro activated for userId: ${userId}, license: ${licenseKey}`);
@@ -58,35 +60,37 @@ function initWebhookHandlers(stripe) {
   /**
    * Handle subscription update/delete events
    */
-  function handleSubscriptionUpdate(subscription, userStore) {
+  function handleSubscriptionUpdate(subscription) {
     const customerId = subscription.customer;
-    const userId = findUserIdByCustomerId(customerId, userStore);
+    const userId = findUserIdByCustomerId(customerId);
     
     if (!userId) {
       console.log(`[WEBHOOK] No user found for customer: ${customerId}`);
       return;
     }
     
-    const user = userStore.get(userId);
+    const user = getUserById(userId);
     if (!user) return;
     
     // Update based on subscription status
+    let updateData = { ...user };
+    
     if (subscription.status === 'active' || subscription.status === 'trialing') {
-      user.plan = 'pro';
-      user.status = 'active';
+      updateData.plan = 'pro';
+      updateData.status = 'active';
       console.log(`[WEBHOOK] ✅ Subscription active for userId: ${userId}`);
     } else if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
-      user.plan = 'basic';
-      user.status = 'cancelled';
-      user.subscriptionId = null;
+      updateData.plan = 'basic';
+      updateData.status = 'cancelled';
+      updateData.subscriptionId = null;
       console.log(`[WEBHOOK] ❌ Subscription cancelled for userId: ${userId}`);
     } else {
-      user.plan = 'basic';
-      user.status = subscription.status;
+      updateData.plan = 'basic';
+      updateData.status = subscription.status;
       console.log(`[WEBHOOK] ⚠️ Subscription ${subscription.status} for userId: ${userId}`);
     }
     
-    userStore.set(userId, user);
+    setUser(userId, updateData);
   }
   
   return {
