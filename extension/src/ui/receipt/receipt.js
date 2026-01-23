@@ -51,11 +51,9 @@ async function generateReceipt() {
       skipped: 0
     };
     
-    // Single pass: filter and count simultaneously
-    const recentRecords = [];
+    // Single pass: filter and count simultaneously (optimized - no array push needed)
     for (const record of Object.values(records)) {
       if (record && record.createdAt && record.createdAt >= sevenDaysAgo) {
-        recentRecords.push(record);
         stats.total++;
         const intent = record.intent;
         if (intent === 'apply') stats.apply++;

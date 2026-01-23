@@ -206,7 +206,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     updates[STORAGE_KEY] = {};
   }
   if (!data[USER_ID_KEY]) {
-    updates[USER_ID_KEY] = `dd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    updates[USER_ID_KEY] = `dd_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
   }
   if (!data[PRO_KEY]) {
     updates[PRO_KEY] = { enabled: false, enabledAt: null, method: null };
@@ -239,15 +239,10 @@ async function setupWeeklyAlarm() {
 
 // Listen for bookmark creation
 chrome.bookmarks.onCreated.addListener(async (bookmarkId, bookmark) => {
-  console.log('[Decision Drift] Bookmark created:', bookmarkId, bookmark.url);
-  
   // Skip folders (no URL)
   if (!bookmark.url) {
-    console.log('[Decision Drift] Skipping folder (no URL)');
     return;
   }
-  
-  // Intent capture is available for all users (free feature)
   
   // Create pending record
   const record = {
@@ -259,53 +254,40 @@ chrome.bookmarks.onCreated.addListener(async (bookmarkId, bookmark) => {
     archived: false
   };
   
+  // Save record (batch with potential future operations)
   const data = await chrome.storage.local.get(STORAGE_KEY);
   const records = data[STORAGE_KEY] || {};
   records[bookmarkId] = record;
   await chrome.storage.local.set({ [STORAGE_KEY]: records });
-  console.log('[Decision Drift] Record saved:', bookmarkId);
   
-  // Find active tab to inject prompt (non-blocking)
+  // Find active tab and inject prompt
   try {
     const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-    console.log('[Decision Drift] Found tabs:', tabs.length, tabs.map(t => ({ id: t.id, url: t.url })));
     
     if (tabs.length > 0) {
       const activeTab = tabs[0];
+      
+      // Skip if tab URL is invalid or not injectable
+      if (!activeTab.url || 
+          activeTab.url.startsWith('chrome://') || 
+          activeTab.url.startsWith('chrome-extension://')) {
+        return;
+      }
+      
+      // Inject prompt
       const title = bookmark.title || new URL(bookmark.url).hostname;
-      
-      console.log('[Decision Drift] Active tab:', activeTab.id, activeTab.url);
-      console.log('[Decision Drift] Bookmark URL:', bookmark.url);
-      
-      // Check if we can inject into this tab
-      if (!activeTab.url) {
-        console.log('[Decision Drift] Tab has no URL, skipping');
-        return;
-      }
-      
-      // Skip chrome:// and chrome-extension:// pages
-      if (activeTab.url.startsWith('chrome://') || activeTab.url.startsWith('chrome-extension://')) {
-        console.log('[Decision Drift] Cannot inject into chrome:// or chrome-extension:// pages');
-        return;
-      }
-      
-      // Inject content script
-      console.log('[Decision Drift] Attempting to inject prompt into tab:', activeTab.id);
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: activeTab.id },
-          func: injectPrompt,
-          args: [bookmarkId.toString(), title, bookmark.url]
-        });
-        console.log('[Decision Drift] ✅ Prompt injected successfully');
-      } catch (error) {
-        console.error('[Decision Drift] ❌ Failed to inject prompt:', error.message, error);
-      }
-    } else {
-      console.log('[Decision Drift] No active tab found');
+      await chrome.scripting.executeScript({
+        target: { tabId: activeTab.id },
+        func: injectPrompt,
+        args: [bookmarkId.toString(), title, bookmark.url]
+      });
     }
   } catch (error) {
-    console.error('[Decision Drift] ❌ Error querying tabs:', error);
+    // Silently fail - injection may not work on all pages
+    // Only log unexpected errors
+    if (error.message && !error.message.includes('Cannot access')) {
+      console.error('[Decision Drift] Failed to inject prompt:', error.message);
+    }
   }
 });
 

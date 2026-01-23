@@ -19,7 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   userId = data[USER_ID_KEY];
   
   if (!userId) {
-    userId = `dd_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    userId = `dd_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     await chrome.storage.local.set({ [USER_ID_KEY]: userId });
   }
   
