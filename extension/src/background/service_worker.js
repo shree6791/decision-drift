@@ -188,15 +188,13 @@ function injectPrompt(bookmarkId, title, url) {
   }
 }
 
-// Import constants (using importScripts in service worker context)
-importScripts('src/shared/constants.js');
-
-const STORAGE_KEY = DD_CONSTANTS.STORAGE_KEY;
-const LAST_RECEIPT_KEY = DD_CONSTANTS.LAST_RECEIPT_KEY;
-const USER_ID_KEY = DD_CONSTANTS.USER_ID_KEY;
-const PRO_KEY = DD_CONSTANTS.PRO_KEY;
-const RECEIPT_VIEWS_KEY = DD_CONSTANTS.RECEIPT_VIEWS_KEY;
-const BACKEND_URL = DD_CONSTANTS.BACKEND_URL;
+// Constants (inline for service worker - importScripts has path resolution issues)
+const STORAGE_KEY = 'dd_records';
+const LAST_RECEIPT_KEY = 'dd_lastReceiptAt';
+const USER_ID_KEY = 'dd_userId';
+const PRO_KEY = 'dd_pro';
+const RECEIPT_VIEWS_KEY = 'dd_receiptViews';
+const BACKEND_URL = 'https://decision-drift.onrender.com'; // TODO: Replace with your backend URL
 
 // Initialize storage on install (batched for efficiency)
 chrome.runtime.onInstalled.addListener(async () => {
@@ -270,21 +268,29 @@ chrome.bookmarks.onCreated.addListener(async (bookmarkId, bookmark) => {
         const activeTab = tabs[0];
         const title = bookmark.title || new URL(bookmark.url).hostname;
         
-        // Inject content script (don't await to avoid blocking)
-        chrome.scripting.executeScript({
-          target: { tabId: activeTab.id },
-          func: injectPrompt,
-          args: [bookmarkId.toString(), title, bookmark.url]
-        }).catch(error => {
-          // Silently fail - injection may not work on all pages (e.g., chrome://)
-          if (error.message && !error.message.includes('Cannot access')) {
-            console.error('Failed to inject prompt:', error);
-          }
-        });
+        // Only inject if tab URL matches bookmark URL (or is close enough)
+        // This prevents injecting on wrong tabs
+        if (activeTab.url && (activeTab.url === bookmark.url || activeTab.url.startsWith('http'))) {
+          // Inject content script (don't await to avoid blocking)
+          chrome.scripting.executeScript({
+            target: { tabId: activeTab.id },
+            func: injectPrompt,
+            args: [bookmarkId.toString(), title, bookmark.url]
+          }).catch(error => {
+            // Log errors for debugging (except for chrome:// pages which are expected to fail)
+            if (error.message && !error.message.includes('Cannot access') && !activeTab.url.startsWith('chrome://')) {
+              console.error('[Decision Drift] Failed to inject prompt:', error.message, 'Tab:', activeTab.url);
+            }
+          });
+        } else {
+          console.log('[Decision Drift] Skipping prompt injection - tab URL mismatch or not injectable');
+        }
+      } else {
+        console.log('[Decision Drift] No active tab found for prompt injection');
       }
     })
-    .catch(() => {
-      // Silently fail if tab query fails
+    .catch(error => {
+      console.error('[Decision Drift] Failed to query tabs:', error);
     });
 });
 

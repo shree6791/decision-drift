@@ -9,7 +9,7 @@
     "alarms",
     "notifications",
     "scripting",
-    "activeTab"
+    "tabs"
   ],
   "background": {
     "service_worker": "src/background/service_worker.js"
